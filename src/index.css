@@ -1,0 +1,248 @@
+/* Using Tailwind via CDN — keep only custom vanilla CSS here (no PostCSS) */
+
+:root {
+  --color-primary: #6C4CF1;        /* Royal Purple */
+  --color-primary-600: #5B3BE8;
+  --color-gradient-from: #6C4CF1;
+  --color-gradient-to: #7B6CF8;
+
+  --color-secondary: #F3F0FF;     /* Soft Lavender */
+  --color-accent: var(--color-primary); /* remove Fresh Mint — use primary */
+
+  --text-dark: #1F2937;           /* Dark Text */
+  --bg: #FFFFFF;                  /* Light Background */
+  --soft-gray: #F8FAFC;
+
+  --success: var(--color-primary);
+  --error: #EF4444;
+  --warning: #F59E0B;
+
+  --border: rgba(31,41,55,0.06);
+  --border-dark: rgba(255,255,255,0.06);
+  --glass-shadow: 0 10px 25px rgba(108,76,241,0.08);
+}
+.dark {
+  --bg: #0B1220;
+  --text-dark: #E6EEF5;
+  --surface: rgba(255,255,255,0.04);
+  --border: var(--border-dark);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--text-dark);
+}
+
+::selection {
+  background: rgba(108,76,241,0.18);
+  color: white;
+}
+
+/* Headings default color will inherit from context; use .text-primary where purple is desired */
+
+/* Override common Tailwind green/emerald utilities to use our theme variables */
+.bg-green-500 { background-color: var(--color-primary) !important; }
+.bg-green-600 { background-color: var(--color-primary-600) !important; }
+.text-green-500 { color: var(--color-primary) !important; }
+.text-green-600 { color: var(--color-primary-600) !important; }
+.border-green-500 { border-color: var(--color-primary) !important; }
+.hover\:border-green-600:hover { border-color: var(--color-primary-600) !important; }
+
+/* Gradient utilities (Tailwind uses --tw-gradient-from / --tw-gradient-to) */
+.from-green-500 { --tw-gradient-from: var(--color-gradient-from) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.from-green-600 { --tw-gradient-from: var(--color-primary-600) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+.to-emerald-400 { --tw-gradient-to: var(--color-gradient-to) !important; }
+.to-emerald-500 { --tw-gradient-to: var(--color-gradient-to) !important; }
+.to-emerald-600 { --tw-gradient-to: var(--color-gradient-to) !important; }
+.hover\:from-green-600:hover { --tw-gradient-from: var(--color-primary-600) !important; }
+.hover\:to-emerald-600:hover { --tw-gradient-to: var(--color-gradient-to) !important; }
+
+/* Shadows */
+.shadow-green-500\/25 { box-shadow: 0 10px 25px rgba(108,76,241,0.08) !important; }
+.hover\:shadow-green-500\/40:hover { box-shadow: 0 12px 30px rgba(108,76,241,0.12) !important; }
+
+/* Button helpers */
+.btn-primary {
+  background: linear-gradient(90deg, var(--color-gradient-from), var(--color-gradient-to));
+  color: #fff !important;
+  box-shadow: var(--glass-shadow);
+}
+.btn-primary:hover {
+  filter: brightness(0.98);
+  box-shadow: 0 12px 30px rgba(108,76,241,0.12);
+}
+.btn-outline {
+  background: transparent !important;
+  border: 2px solid var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* Primary helpers */
+.bg-primary-gradient {
+  background: linear-gradient(90deg, var(--color-gradient-from), var(--color-gradient-to)) !important;
+}
+.bg-primary-10 { background-color: rgba(108,76,241,0.08) !important; }
+.via-primary-5 { background-image: linear-gradient(90deg, rgba(108,76,241,0.05), transparent) !important; }
+/* Secondary and helpers */
+.bg-secondary { background-color: var(--color-secondary) !important; }
+.text-primary { color: var(--color-primary) !important; }
+.wave-primary { background: linear-gradient(90deg, transparent, rgba(108,76,241,0.05), transparent) !important; }
+
+/* Broader overrides to replace remaining Tailwind green/emerald utilities */
+.text-emerald-400, .text-emerald-500, .text-emerald-600,
+.text-green-400, .text-green-500, .text-green-600 {
+  color: var(--color-primary) !important;
+}
+
+.bg-emerald-50, .bg-emerald-100, .bg-emerald-200,
+.bg-green-50, .bg-green-100, .bg-green-200 {
+  background-color: var(--color-secondary) !important; /* Soft Lavender for surfaces */
+}
+
+.bg-emerald-400, .bg-emerald-500, .bg-emerald-600,
+.bg-green-400, .bg-green-500, .bg-green-600 {
+  background-color: var(--color-primary) !important; /* Primary for strong backgrounds */
+}
+
+.hover\:bg-green-50:hover, .hover\:bg-emerald-50:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.border-emerald-400, .border-emerald-500, .border-green-500, .border-green-600 {
+  border-color: var(--color-primary) !important;
+}
+
+.ring-green-400, .ring-green-500, .ring-emerald-400 {
+  box-shadow: 0 0 0 4px rgba(108,76,241,0.08) !important;
+}
+
+/* Custom utility/component classes (approx equivalents of previous @apply rules) */
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dark .glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card-hover {
+  transition: all 0.3s ease;
+}
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.dark .glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gradient-text {
+  background: linear-gradient(90deg, var(--color-gradient-from), var(--color-gradient-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-btn {
+  background: linear-gradient(90deg, var(--color-gradient-from), var(--color-gradient-to));
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 25px rgba(108,76,241,0.12);
+}
+.gradient-btn:hover {
+  box-shadow: 0 12px 30px rgba(108,76,241,0.16);
+}
+
+.section-padding {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+@media (min-width: 640px) {
+  .section-padding {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+}
+@media (min-width: 1024px) {
+  .section-padding {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.container {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Animations & misc */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+.animate-float-delayed {
+  animation: float 6s ease-in-out infinite 1s;
+}
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+.animate-pulse-slow {
+  animation: pulse 3s ease-in-out infinite;
+}
+.text-stroke {
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.1);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.03); opacity: 0.9; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-down {
+  animation: slideDown 0.5s ease-out;
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-count-up {
+  animation: countUp 0.6s ease-out forwards;
+}
