@@ -8,6 +8,7 @@ import RegisterPage from './pages/Register/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPassword/ForgotPasswordPage'
 import VerifyOtpPage from './pages/VerifyOtp/VerifyOtpPage'
 import ResetPasswordPage from './pages/ResetPassword/ResetPasswordPage'
+import BottomNav from './components/navbar/BottomNav'
 import CartPage from './pages/Cart/CartPage'
 import ShopPage from './pages/Shop/ShopPage'
 import ProductPage from './pages/Product/ProductPage'
@@ -171,6 +172,7 @@ const App = () => {
         </Routes>
       </AnimatePresence>
       <InstallPWA />
+      <BottomNav />
     </>
   )
 }

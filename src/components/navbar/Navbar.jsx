@@ -107,7 +107,7 @@ const Navbar = () => {
               onClick={() => navigate('/')}
               className="flex items-center cursor-pointer"
             >
-              <img src={logo} alt="Nearzo Logo" className="h-12 object-contain" />
+              <img src={logo} alt="Nearzo Logo" className="h-8 sm:h-12 object-contain" />
             </motion.div>
 
             {/* Location Selector */}
@@ -116,13 +116,13 @@ const Navbar = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setLocationModalOpen(!locationModalOpen)}
-                className="hidden sm:flex items-center gap-1.5 cursor-pointer px-2 py-1 group"
+                className="flex items-center gap-1.5 cursor-pointer px-1 sm:px-2 py-1 group"
               >
                 <div className="flex flex-col">
-                  <span className="text-[15px] font-extrabold text-gray-900 dark:text-white leading-tight truncate max-w-[180px] group-hover:text-primary transition-colors">{primaryLocation}</span>
-                  <span className="text-[12px] text-gray-500 font-medium truncate max-w-[220px]">{secondaryLocation}</span>
+                  <span className="text-[13px] sm:text-[15px] font-extrabold text-gray-900 dark:text-white leading-tight truncate w-[100px] sm:max-w-[180px] group-hover:text-primary transition-colors">{primaryLocation}</span>
+                  <span className="text-[10px] sm:text-[12px] text-gray-500 font-medium truncate w-[100px] sm:max-w-[220px]">{secondaryLocation}</span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-700 dark:text-gray-300 ml-1 transition-transform duration-300 ${locationModalOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-700 dark:text-gray-300 transition-transform duration-300 ${locationModalOpen ? 'rotate-180' : ''}`} />
               </motion.div>
 
               {/* Location Dropdown */}
