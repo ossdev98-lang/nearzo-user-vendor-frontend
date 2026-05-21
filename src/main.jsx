@@ -7,6 +7,12 @@ import './index.css'
 import { AppProvider } from './context/AppContext'
 import 'virtual:pwa-register'
 
+window.deferredPwaPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.deferredPwaPrompt = e;
+});
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
