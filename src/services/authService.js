@@ -8,6 +8,9 @@ export const authService = {
         localStorage.setItem('token', response.data.token)
         if (response.data.user) {
           localStorage.setItem('user', JSON.stringify(response.data.user))
+          localStorage.setItem('role', response.data.user.role || credentials.role)
+        } else if (credentials.role) {
+          localStorage.setItem('role', credentials.role)
         }
       }
       return response.data
@@ -60,9 +63,18 @@ export const authService = {
     }
   },
 
-  resetPassword: async (email, otp, newPassword) => {
+  resendOtp: async (email) => {
     try {
-      const response = await API.post('/auth/reset-password', { email, otp, newPassword })
+      const response = await API.post('/auth/resend-otp', { email })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
+  resetPassword: async (email, newPassword) => {
+    try {
+      const response = await API.post('/auth/reset-password', { email, newPassword })
       return response.data
     } catch (error) {
       throw error.response?.data || error

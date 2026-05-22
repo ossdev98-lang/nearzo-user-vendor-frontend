@@ -20,7 +20,7 @@ export default function ShopsSection({ selectedCategory }) {
 
   return (
     <section className="py-8 bg-white dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex justify-between items-end">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -33,14 +33,14 @@ export default function ShopsSection({ selectedCategory }) {
         </div>
 
         {filteredShops.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {filteredShops.map((shop) => (
               <div
                 key={shop.id}
                 onClick={() => navigate(`/shop/${shop.id}`)}
-                className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
+                className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col"
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-28 sm:h-48 overflow-hidden shrink-0">
                   <img
                     src={shop.image}
                     alt={shop.name}
@@ -52,32 +52,32 @@ export default function ShopsSection({ selectedCategory }) {
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+                <div className="p-3 sm:p-4 flex flex-col flex-grow">
+                  <div className="flex justify-between items-start mb-1 sm:mb-2">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1">
                       {shop.name}
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span>{shop.time}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
+                      <span className="whitespace-nowrap">{shop.time}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 truncate">
-                      <MapPin className="w-4 h-4 text-primary" />
+                    <div className="flex items-center gap-1 sm:gap-1.5 truncate">
+                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
                       <span className="truncate">{shop.address}</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-auto">
                     {shop.categories.slice(0, 3).map((cat, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md text-[10px] font-medium uppercase tracking-wider">
+                      <span key={idx} className="px-1.5 sm:px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md text-[9px] sm:text-[10px] font-medium uppercase tracking-wider truncate max-w-full">
                         {cat}
                       </span>
                     ))}
                     {shop.categories.length > 3 && (
-                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md text-[10px] font-medium uppercase tracking-wider">
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md text-[9px] sm:text-[10px] font-medium uppercase tracking-wider shrink-0">
                         +{shop.categories.length - 3}
                       </span>
                     )}

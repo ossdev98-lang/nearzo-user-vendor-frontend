@@ -12,10 +12,12 @@ import logo from '../../assets/nearzo-logo.png'
 
 const Footer = () => {
   const footerLinks = {
-    Company: ['About Us', 'Careers', 'Press', 'Blog', 'Contact'],
-    Categories: ['Fruits & Veggies', 'Dairy & Eggs', 'Meat & Seafood', 'Bakery', 'Beverages', 'Snacks'],
+    Company: ['About Us', 'Blog', 'Contact'],
+    Categories: ['Fruits & Veggies', 'Dairy & Eggs', 'Bakery', 'Beverages', 'Snacks'],
     Support: ['Help Center', 'FAQs', 'Delivery Info', 'Returns', 'Privacy Policy', 'Terms'],
-    'For Business': ['Become a Seller', 'Advertising', 'Business Account', 'Bulk Orders'],
+    // 'For Business': ['Become a Seller', 'Advertising', 'Business Account', 'Bulk Orders'],
+    'For Business': ['List Your Store'],
+
   }
 
   const socialLinks = [
@@ -27,7 +29,7 @@ const Footer = () => {
   ]
 
   return (
-    <footer className="bg-gray-900 dark:bg-gray-950 text-gray-300 pt-16 pb-8">
+    <footer className="hidden md:block bg-gray-900 dark:bg-gray-950 text-gray-300 pt-16 pb-8">
       {/* Top Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">

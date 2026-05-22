@@ -16,7 +16,7 @@ const categories = [
 export default function CategoryPills({ selected, onSelect }) {
   return (
     <div className="w-full border-b border-gray-100 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4 py-3">
           {/* Left GIF */}
           <div className="hidden lg:flex w-28 xl:w-32 flex-shrink-0 items-center justify-center">
@@ -24,7 +24,7 @@ export default function CategoryPills({ selected, onSelect }) {
           </div>
 
           {/* Categories */}
-          <div className="flex gap-4 overflow-x-auto no-scrollbar items-center justify-start lg:justify-center flex-1">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar items-center justify-start lg:justify-center flex-1 py-2 px-1">
             {categories.map((c) => {
               const active = selected === c.name || (!selected && c.name === 'All')
               return (

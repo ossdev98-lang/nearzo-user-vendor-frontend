@@ -38,11 +38,18 @@ const LoginPage = () => {
 
     setLoading(true)
     try {
-      await authService.login({ email, password })
+      const role = new URLSearchParams(window.location.search).get('role') || 'user'
+      await authService.login({ email, password, role })
       toast.success('Welcome back! Login successful')
       navigate('/')
     } catch (error) {
-      toast.error(error.message || 'Invalid credentials. Please try again.')
+      const errorMsg = error.message?.toLowerCase() || ''
+      if (errorMsg.includes('verify') || errorMsg.includes('verified') || error.status === 403) {
+        toast.error('Please verify your account first.')
+        navigate(`/verify-otp?email=${encodeURIComponent(email)}&type=register`)
+      } else {
+        toast.error(error.message || 'Invalid credentials. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -65,7 +72,7 @@ const LoginPage = () => {
       </div>
 
       {/* Right Column - Form */}
-      <div className="p-8 sm:p-12 w-full md:w-1/2 flex flex-col justify-center bg-white dark:bg-gray-900 relative">
+      <div className="p-6 sm:p-12 w-full md:w-1/2 flex flex-col justify-center bg-white dark:bg-gray-900 relative">
         {/* Back to Home Button */}
         <div className="absolute top-6 left-6 md:top-8 md:left-8">
           <Link to="/" className="flex items-center text-sm font-medium text-gray-500 hover:text-purple-600 transition-colors">
@@ -75,15 +82,14 @@ const LoginPage = () => {
         </div>
 
         {/* Logo (only visible on mobile) */}
-        <div className="flex flex-col items-center mb-8 mt-4 md:hidden">
+        <div className="flex flex-col items-center mb-2 mt-2 md:hidden">
           <Link to="/" className="flex flex-col items-center hover:scale-105 transition-transform">
-            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain mb-2" />
-            <h2 className="text-xl font-bold text-primary">Nearzo</h2>
+            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain" />
           </Link>
         </div>
 
         {/* Welcome Text */}
-        <div className="mb-6 mt-4 md:mt-0 text-center md:text-left">
+        <div className="mb-6 mt-2 md:mt-0 text-center md:text-left">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sign In</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Please enter your details to continue</p>
         </div>

@@ -8,6 +8,7 @@ export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isCartOpen, setIsCartOpen] = useState(false)
 
   const addToCart = useCallback((product) => {
     setCart((prev) => {
@@ -64,6 +65,8 @@ export const AppProvider = ({ children }) => {
     setSearchQuery,
     isDarkMode,
     toggleDarkMode,
+    isCartOpen,
+    setIsCartOpen,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Navbar from '../components/navbar/Navbar'
 import Footer from '../components/footer/Footer'
+import CartDrawer from '../components/cart/CartDrawer'
 
 const MainLayout = () => {
   return (
@@ -10,6 +11,7 @@ const MainLayout = () => {
         <Outlet />
       </main>
       <Footer />
+      <CartDrawer />
     </div>
   )
 }

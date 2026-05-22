@@ -23,7 +23,7 @@ const Navbar = () => {
   const [loginDropdownOpen, setLoginDropdownOpen] = useState(false)
   const [manualLocation, setManualLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
-  const { cartCount, searchQuery, setSearchQuery } = useApp()
+  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen } = useApp()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -92,12 +92,12 @@ const Navbar = () => {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled || mobileOpen
         ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-lg shadow-black/5'
-        : 'bg-transparent'
+        : 'bg-white md:bg-transparent'
         }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo & Location */}
           <div className="flex items-center gap-6">
@@ -140,7 +140,7 @@ const Navbar = () => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 mt-3 w-[360px] bg-white dark:bg-gray-900 rounded-2xl p-5 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+                      className="absolute top-full -left-14 sm:left-0 mt-3 w-[300px] sm:w-[360px] bg-white dark:bg-gray-900 rounded-2xl p-4 sm:p-5 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
                     >
                       <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Choose your location</h3>
                       
@@ -204,7 +204,7 @@ const Navbar = () => {
             <motion.button
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => navigate('/cart')}
+              onClick={() => setIsCartOpen(true)}
               className="relative p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-primary-10 hover:border-primary transition-all duration-300"
             >
               <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -298,7 +298,7 @@ const Navbar = () => {
                     key={item.path}
                     to={item.path}
                     onClick={() => setMobileOpen(false)}
-                    className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-emerald-400 rounded-xl transition-all duration-300"
+                    className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-primary rounded-xl transition-all duration-300"
                   >
                     {item.label}
                   </NavLink>
@@ -306,7 +306,8 @@ const Navbar = () => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="mt-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-xl shadow-lg shadow-green-500/25 transition-all duration-300"
+                  onClick={() => { setMobileOpen(false); navigate('/login?role=user'); }}
+                  className="mt-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-[#6C4CF1] hover:bg-[#5B3BE8] rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-300"
                 >
                   <User className="w-4 h-4" />
                   Login / Sign Up

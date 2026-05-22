@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom'
 
 const AuthLayout = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f5f3ff] to-[#e0e7ff] dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 relative overflow-hidden py-12">
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-[#f5f3ff] to-[#e0e7ff] dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 relative overflow-hidden pt-6 pb-24 sm:py-12">
       {/* Animated Background Shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -35,7 +35,7 @@ const AuthLayout = () => {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-4xl px-4">
+      <div className="relative z-10 w-full max-w-4xl px-4 my-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -45,23 +45,6 @@ const AuthLayout = () => {
         </motion.div>
       </div>
 
-      {/* Floating Elements */}
-      <div className="absolute top-8 left-8 flex items-center gap-2 opacity-50">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        >
-          <div className="w-8 h-8 rounded-full border-2 border-purple-300" />
-        </motion.div>
-      </div>
-      <div className="absolute bottom-8 right-8 flex items-center gap-2 opacity-50">
-        <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
-        >
-          <div className="w-6 h-6 rounded-full border-2 border-indigo-300" />
-        </motion.div>
-      </div>
     </div>
   )
 }

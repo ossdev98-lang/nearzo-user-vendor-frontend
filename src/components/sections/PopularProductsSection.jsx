@@ -16,30 +16,54 @@ const PopularProductsSection = ({ selectedCategory }) => {
   const items = selectedCategory ? productsData.filter((p) => p.category === selectedCategory) : productsData
 
   return (
-    <section className="py-12 bg-white dark:bg-gray-900 px-4 sm:px-6">
-      <div className="container max-w-7xl mx-auto bg-[#F3F0FF] dark:bg-[#1E1A34] rounded-t-[40px] rounded-b-[24px] p-6 sm:p-10 pb-16 border border-[#E5DEFF] dark:border-[#2D264A]">
+    <section className="py-8 bg-white dark:bg-gray-900 px-4 sm:px-6">
+      <div className="container max-w-[90rem] mx-auto bg-[#EBE4FF] dark:bg-[#292245] rounded-[32px] px-4 sm:px-8 pb-10 pt-0 relative shadow-sm">
         
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10 mt-4"
-        >
-          <h2 className="text-3xl sm:text-[2.5rem] font-bold text-gray-900 dark:text-white mb-3 tracking-tight">
-            Best Selling <span className="text-purple-600 dark:text-purple-400">Products</span>
-          </h2>
-          <p className="text-[#6C4CF1] dark:text-[#9A81F8] font-semibold text-sm sm:text-base">
-            Up to 69% discount for limited time 🔥
-          </p>
-        </motion.div>
+        {/* Top U-Shape Cutout for Title */}
+        <div className="flex justify-center relative w-full h-[95px] sm:h-[110px] mb-4 sm:mb-8">
+          {/* Mathematically smooth SVG curve */}
+          <svg 
+            className="absolute top-0 w-full max-w-[500px] sm:max-w-[700px] h-full text-white dark:text-gray-900 filter drop-shadow-sm" 
+            viewBox="0 0 700 100" 
+            preserveAspectRatio="none" 
+            fill="currentColor"
+          >
+            <path d="M0,0 C40,0 60,100 120,100 L580,100 C640,100 660,0 700,0 Z" />
+          </svg>
+          
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="relative z-10 pt-5 sm:pt-6 px-6 sm:px-10 text-center flex flex-col items-center"
+          >
+            <h2 className="text-2xl sm:text-[2.2rem] font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2 tracking-tight">
+              Best Selling <span className="text-[#6C4CF1] dark:text-[#9A81F8]">Products</span>
+            </h2>
+            <p className="text-[#6C4CF1] dark:text-[#9A81F8] font-semibold text-[11px] sm:text-sm">
+              Up to 69% discount for limited time 🔥
+            </p>
+          </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+        {/* Products Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-5 mt-6 sm:mt-8">
           {items.map((product, index) => (
             <ProductCard key={product.id} product={product} index={index} />
           ))}
         </div>
         
+        {/* Bottom Navigation Arrows (Static placeholder for design) */}
+        <div className="flex items-center justify-center gap-4 mt-10">
+          <button className="w-11 h-11 rounded-full bg-white/70 dark:bg-gray-800/70 flex items-center justify-center text-[#6C4CF1] dark:text-[#9A81F8] hover:bg-white hover:shadow-md transition-all">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button className="w-11 h-11 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center text-[#6C4CF1] dark:text-[#9A81F8] hover:shadow-md transition-all">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+
       </div>
     </section>
   )

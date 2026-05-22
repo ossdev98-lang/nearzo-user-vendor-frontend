@@ -54,14 +54,13 @@ const ForgotPasswordPage = () => {
           </Link>
         </div>
 
-        <div className="flex flex-col items-center mb-8 mt-4 md:hidden">
+        <div className="flex flex-col items-center mb-2 mt-2 md:hidden">
           <Link to="/" className="flex flex-col items-center hover:scale-105 transition-transform">
-            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain mb-2" />
-            <h2 className="text-xl font-bold text-primary">Nearzo</h2>
+            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain" />
           </Link>
         </div>
 
-        <div className="mb-6 mt-4 md:mt-0 text-center md:text-left">
+        <div className="mb-6 mt-2 md:mt-0 text-center md:text-left">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Forgot Password</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your email to receive an OTP</p>
         </div>

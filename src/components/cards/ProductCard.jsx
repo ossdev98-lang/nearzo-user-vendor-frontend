@@ -19,10 +19,10 @@ const ProductCard = ({ product, index }) => {
       transition={{ duration: 0.5, delay: index * 0.08 }}
       whileHover={{ y: -6, scale: 1.02 }}
       onClick={() => navigate(`/product/${product.id}`)}
-      className="bg-white rounded-[24px] p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100"
+      className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100"
     >
       {/* Image Container */}
-      <div className="relative bg-[#F8F9FA] rounded-[16px] h-[180px] w-full flex items-center justify-center p-4 overflow-hidden">
+      <div className="relative bg-[#F8F9FA] rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center p-2 sm:p-4 overflow-hidden">
         {/* Discount Badge */}
         {product.discount > 0 && (
           <div className="absolute top-3 left-3 z-10">
@@ -49,7 +49,7 @@ const ProductCard = ({ product, index }) => {
           </p>
         )}
         {/* Title */}
-        <h3 className="text-[15px] font-semibold text-gray-800 leading-tight line-clamp-2 mb-2 min-h-[40px]">
+        <h3 className="text-[13px] sm:text-[15px] font-semibold text-gray-800 leading-tight line-clamp-2 mb-1">
           {product.name}
         </h3>
 
@@ -74,16 +74,16 @@ const ProductCard = ({ product, index }) => {
 
         <div className="mt-auto">
           {/* Prices */}
-          <div className="flex items-end gap-2 mb-3">
-            <span className="text-[15px] font-bold text-[#6C4CF1]">
+          <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-3">
+            <span className="text-[14px] sm:text-[15px] font-bold text-[#6C4CF1]">
               ₹{(product.price || 0).toFixed(2)}
             </span>
             {product.discount > 0 && (
               <>
-                <span className="text-[12px] text-gray-400 line-through mb-[2px]">
+                <span className="text-[11px] sm:text-[12px] text-gray-400 line-through">
                   ₹{originalPrice.toFixed(2)}
                 </span>
-                <span className="text-[11px] font-bold text-[#FF4A55] mb-[2px]">
+                <span className="text-[10px] sm:text-[11px] font-bold text-[#FF4A55]">
                   {product.discount}% OFF
                 </span>
               </>
@@ -92,21 +92,21 @@ const ProductCard = ({ product, index }) => {
 
           {/* Actions */}
           <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-            <button className="text-gray-400 hover:text-[#FF4A55] transition-colors p-1">
-              <Heart className="w-5 h-5" />
+            <button className="text-gray-400 hover:text-[#FF4A55] transition-colors p-1.5 sm:p-1 rounded-full border border-gray-100 hover:border-[#FF4A55] hover:bg-red-50">
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 addToCart(product)
               }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-semibold text-sm transition-colors ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold sm:font-semibold text-[11px] sm:text-sm transition-colors shadow-sm ${
                 isInCart
                   ? 'bg-indigo-600 text-white'
                   : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white'
               }`}
             >
-              <ShoppingCart className="w-4 h-4" />
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>{isInCart ? 'Added' : 'Add'}</span>
             </button>
           </div>

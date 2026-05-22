@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 
 const BottomNav = () => {
-  const { cartCount } = useApp()
+  const { cartCount, setIsCartOpen } = useApp()
 
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },
@@ -25,7 +25,10 @@ const BottomNav = () => {
               }`
             }
             onClick={(e) => {
-              if (item.path === '#categories') {
+              if (item.label === 'Cart') {
+                e.preventDefault()
+                setIsCartOpen(true)
+              } else if (item.path === '#categories') {
                 e.preventDefault()
                 window.scrollTo({ top: 500, behavior: 'smooth' })
               }

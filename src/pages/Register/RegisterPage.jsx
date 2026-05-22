@@ -20,11 +20,12 @@ import { authService } from '../../services/authService'
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
+    name: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
+    avatar: null,
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -33,8 +34,9 @@ const RegisterPage = () => {
   const navigate = useNavigate()
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, files } = e.target
+    const val = type === 'file' ? files[0] : value
+    setFormData((prev) => ({ ...prev, [name]: val }))
     // Clear error on change
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
@@ -44,10 +46,10 @@ const RegisterPage = () => {
   const validate = () => {
     const newErrors = {}
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required'
-    } else if (formData.fullName.trim().length < 2) {
-      newErrors.fullName = 'Name must be at least 2 characters'
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required'
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters'
     }
 
     if (!formData.email.trim()) {
@@ -86,14 +88,18 @@ const RegisterPage = () => {
 
     setLoading(true)
     try {
-      await authService.register({
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password
-      })
-      toast.success('Account created successfully! Welcome to Nearzo')
-      navigate('/')
+      const formDataToSend = new FormData()
+      formDataToSend.append('name', formData.name)
+      formDataToSend.append('email', formData.email)
+      formDataToSend.append('phone', formData.phone)
+      formDataToSend.append('password', formData.password)
+      if (formData.avatar) {
+        formDataToSend.append('avatar', formData.avatar)
+      }
+
+      await authService.register(formDataToSend)
+      toast.success('Account created! Please verify your email with the OTP sent to you.')
+      navigate(`/verify-otp?email=${encodeURIComponent(formData.email)}&type=register`)
     } catch (error) {
       toast.error(error.message || 'Registration failed. Please try again.')
     } finally {
@@ -110,7 +116,7 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row bg-white dark:bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-purple-100/50 dark:border-white/5 max-h-[600px] w-full">
+    <div className="flex flex-col md:flex-row bg-white dark:bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-purple-100/50 dark:border-white/5 max-h-none sm:max-h-[600px] w-full">
       {/* Left Column - Beautiful Grocery Unsplash Image with Centered Nearzo Logo */}
       <div className="hidden md:block w-1/2 relative h-[600px] bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&fit=crop')" }}>
         <div className="absolute inset-0 bg-gradient-to-br from-purple-950/70 to-indigo-900/90 mix-blend-multiply" />
@@ -127,7 +133,7 @@ const RegisterPage = () => {
 
       {/* Right Column - Form */}
       <div 
-        className="p-8 sm:p-12 w-full md:w-1/2 flex flex-col bg-white dark:bg-gray-900 overflow-y-auto no-scrollbar h-[600px] relative"
+        className="p-6 sm:p-12 w-full md:w-1/2 flex flex-col bg-white dark:bg-gray-900 overflow-y-auto no-scrollbar h-auto sm:h-[600px] relative"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <style dangerouslySetInnerHTML={{__html: `
@@ -145,15 +151,14 @@ const RegisterPage = () => {
         </div>
 
         {/* Logo (only visible on mobile) */}
-        <div className="flex flex-col items-center mb-6 mt-6 md:hidden">
+        <div className="flex flex-col items-center mb-2 mt-2 md:hidden">
           <Link to="/" className="flex flex-col items-center hover:scale-105 transition-transform">
-            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain mb-2" />
-            <h2 className="text-xl font-bold text-primary">Nearzo</h2>
+            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain" />
           </Link>
         </div>
 
         {/* Welcome Text */}
-        <div className="mb-6 mt-6 md:mt-8 text-center md:text-left">
+        <div className="mb-6 mt-2 md:mt-0 text-center md:text-left">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sign Up</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Join us to start shopping locally</p>
         </div>
@@ -164,10 +169,18 @@ const RegisterPage = () => {
             label="Full Name"
             type="text"
             placeholder="John Doe"
-            name="fullName"
-            value={formData.fullName}
+            name="name"
+            value={formData.name}
             onChange={handleChange}
-            error={errors.fullName}
+            error={errors.name}
+            icon={<User className="w-4 h-4 text-gray-400" />}
+          />
+          <Input
+            label="Avatar Image (Optional)"
+            type="file"
+            name="avatar"
+            accept="image/*"
+            onChange={handleChange}
             icon={<User className="w-4 h-4 text-gray-400" />}
           />
           <Input

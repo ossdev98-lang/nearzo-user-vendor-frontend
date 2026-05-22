@@ -24,7 +24,7 @@ API.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           localStorage.removeItem('token')
-          window.location.href = '/login'
+          // window.location.href = '/login'
           break
         case 404:
           console.error('Resource not found')
