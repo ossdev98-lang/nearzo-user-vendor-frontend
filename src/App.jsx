@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AuthLayout from './layouts/AuthLayout'
@@ -15,6 +16,7 @@ import ProductPage from './pages/Product/ProductPage'
 import NotFoundPage from './pages/NotFound/NotFoundPage'
 import { useApp } from './context/AppContext'
 import InstallPWA from './components/common/InstallPWA'
+import LoadingScreen from './components/common/LoadingScreen'
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useApp()
@@ -23,6 +25,16 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
   const location = useLocation()
+  const [isPageLoading, setIsPageLoading] = useState(true)
+
+  useEffect(() => {
+    setIsPageLoading(true)
+    const timer = setTimeout(() => {
+      setIsPageLoading(false)
+    }, 1200) // Adjust duration for animation
+
+    return () => clearTimeout(timer)
+  }, [location.pathname])
 
   return (
     <>
@@ -173,6 +185,7 @@ const App = () => {
       </AnimatePresence>
       <InstallPWA />
       <BottomNav />
+      <LoadingScreen isVisible={isPageLoading} />
     </>
   )
 }

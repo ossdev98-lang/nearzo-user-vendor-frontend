@@ -8,6 +8,11 @@ const InstallPWA = () => {
   const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+      return;
+    }
+
     // Show button unconditionally after a short delay for better UX
     const timer = setTimeout(() => {
       setShowInstallButton(true);
@@ -41,6 +46,7 @@ const InstallPWA = () => {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
+        window.deferredPwaPrompt = null;
         setShowInstallButton(false);
       }
     } else {
