@@ -291,142 +291,142 @@ const Navbar = () => {
                 <Menu className="w-6 h-6" />
               </button>
 
-            {/* Cart (Desktop Only) */}
-            <motion.button
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setIsCartOpen(true)}
-              className="hidden md:flex relative p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-primary-10 hover:border-primary transition-all duration-300"
-            >
-                  <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                  {cartCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-lg shadow-red-500/40"
+              {/* Cart (Desktop Only) */}
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsCartOpen(true)}
+                className="hidden md:flex relative p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-primary-10 hover:border-primary transition-all duration-300"
+              >
+                <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                {cartCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-lg shadow-red-500/40"
+                  >
+                    {cartCount}
+                  </motion.span>
+                )}
+              </motion.button>
+
+              {/* Auth / Profile Dropdown */}
+              <div className={`relative ${!user ? 'hidden md:block' : 'block'}`}>
+                {user ? (
+                  <>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
+                      className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-100 transition-all duration-300"
                     >
-                      {cartCount}
-                    </motion.span>
-                  )}
-                </motion.button>
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 dark:border-white/10">
+                        <img
+                          src={getAvatarUrl(user.avatar)}
+                          alt={user.name}
+                          crossOrigin="anonymous"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = dummyUserImage }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[100px]">
+                        {user.name}
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
+                    </motion.button>
 
-            {/* Auth / Profile Dropdown */}
-            <div className={`relative ${!user ? 'hidden md:block' : 'block'}`}>
-              {user ? (
-                    <>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
-                        className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-gray-100 transition-all duration-300"
-                      >
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 dark:border-white/10">
-                          <img
-                            src={getAvatarUrl(user.avatar)}
-                            alt={user.name}
-                            crossOrigin="anonymous"
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.src = dummyUserImage }}
+                    <AnimatePresence>
+                      {loginDropdownOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setLoginDropdownOpen(false)}
                           />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[100px]">
-                          {user.name}
-                        </span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
-                      </motion.button>
-
-                      <AnimatePresence>
-                        {loginDropdownOpen && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              onClick={() => setLoginDropdownOpen(false)}
-                            />
-                            <motion.div
-                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                              transition={{ duration: 0.2 }}
-                              className="absolute top-full right-0 mt-3 w-56 bg-white dark:bg-gray-900 rounded-2xl p-2 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full right-0 mt-3 w-56 bg-white dark:bg-gray-900 rounded-2xl p-2 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+                          >
+                            <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                            </div>
+                            <button
+                              onClick={() => { setLoginDropdownOpen(false); navigate('/profile') }}
+                              className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
                             >
-                              <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                              </div>
-                              <button
-                                onClick={() => { setLoginDropdownOpen(false); navigate('/profile') }}
-                                className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                              >
-                                <User className="w-4 h-4 text-gray-500" />
-                                My Profile
-                              </button>
-                              <button
-                                onClick={() => { setLoginDropdownOpen(false); navigate('/settings') }}
-                                className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                              >
-                                <Settings className="w-4 h-4 text-gray-500" />
-                                Settings
-                              </button>
-                              <button
-                                onClick={handleLogout}
-                                className="w-full mt-1 text-left px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-sm font-medium text-red-600 dark:text-red-400 transition-colors flex items-center gap-2"
-                              >
-                                <LogOut className="w-4 h-4" />
-                                Logout
-                              </button>
-                            </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </>
-                  ) : (
-                    <>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white btn-primary transition-all duration-300"
-                      >
-                        <User className="w-4 h-4" />
-                        Login
-                        <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
-                      </motion.button>
-
-                      <AnimatePresence>
-                        {loginDropdownOpen && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              onClick={() => setLoginDropdownOpen(false)}
-                            />
-                            <motion.div
-                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                              transition={{ duration: 0.2 }}
-                              className="absolute top-full right-0 mt-3 w-48 bg-white dark:bg-gray-900 rounded-2xl p-2 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+                              <User className="w-4 h-4 text-gray-500" />
+                              My Profile
+                            </button>
+                            <button
+                              onClick={() => { setLoginDropdownOpen(false); navigate('/settings') }}
+                              className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
                             >
-                              <button
-                                onClick={() => { setLoginDropdownOpen(false); navigate('/login?role=user') }}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                              >
-                                <User className="w-4 h-4 text-primary" />
-                                Login as User
-                              </button>
-                              <button
-                                // onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/login') }}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                              >
-                                <Store className="w-4 h-4 text-orange-500" />
-                                Login as Vendor
-                              </button>
-                            </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </>
-                  )}
-            </div>
+                              <Settings className="w-4 h-4 text-gray-500" />
+                              Settings
+                            </button>
+                            <button
+                              onClick={handleLogout}
+                              className="w-full mt-1 text-left px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-sm font-medium text-red-600 dark:text-red-400 transition-colors flex items-center gap-2"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Logout
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </>
+                ) : (
+                  <>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setLoginDropdownOpen(!loginDropdownOpen)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white btn-primary transition-all duration-300"
+                    >
+                      <User className="w-4 h-4" />
+                      Login
+                      <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
+                    </motion.button>
+
+                    <AnimatePresence>
+                      {loginDropdownOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setLoginDropdownOpen(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full right-0 mt-3 w-48 bg-white dark:bg-gray-900 rounded-2xl p-2 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+                          >
+                            <button
+                              onClick={() => { setLoginDropdownOpen(false); navigate('/login?role=user') }}
+                              className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                            >
+                              <User className="w-4 h-4 text-primary" />
+                              Login as User
+                            </button>
+                            <button
+                              // onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/login') }}
+                              className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                            >
+                              <Store className="w-4 h-4 text-orange-500" />
+                              Login as Vendor
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -475,7 +475,7 @@ const Navbar = () => {
                       Login as User
                     </button>
                     <button
-                      onClick={() => { setMobileOpen(false); navigate('/vendor/login') }}
+                      // onClick={() => { setMobileOpen(false); navigate('/vendor/login') }}
                       className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-purple-600 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 transition-colors"
                     >
                       <Store className="w-4 h-4" />
