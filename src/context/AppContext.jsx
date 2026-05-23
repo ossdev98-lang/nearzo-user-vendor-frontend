@@ -5,7 +5,14 @@ const AppContext = createContext()
 export const AppProvider = ({ children }) => {
   const [cart, setCart] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      const userStr = localStorage.getItem('user')
+      return userStr ? JSON.parse(userStr) : null
+    } catch {
+      return null
+    }
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)

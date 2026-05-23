@@ -17,7 +17,7 @@ const CartDrawer = () => {
 
   const handleCheckout = () => {
     setIsCartOpen(false)
-    navigate('/cart') // or '/checkout' if you have one
+    navigate('/checkout')
   }
 
   return (

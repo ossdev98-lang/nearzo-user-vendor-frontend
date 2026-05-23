@@ -263,6 +263,10 @@ const ProductPage = () => {
                     )}
                   </button>
                   <button
+                    onClick={() => {
+                      if (!isInCart) addToCart({ ...product, price: currentPrice, unit: variants[selectedVariant].label, quantity });
+                      navigate('/checkout');
+                    }}
                     className="flex-grow h-12 flex items-center justify-center rounded-xl font-bold text-base transition-all border-2 border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10"
                   >
                     Buy Now

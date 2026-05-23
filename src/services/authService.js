@@ -45,6 +45,39 @@ export const authService = {
     return null
   },
 
+  getProfile: async () => {
+    try {
+      const response = await API.get('/auth/me')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
+  updateProfile: async (profileData) => {
+    try {
+      // Create a copy of the data
+      let payload = { ...profileData }
+      // If we are passing formData directly, we must NOT use { ...profileData }
+      if (profileData instanceof FormData) {
+        payload = profileData
+      }
+      const response = await API.put('/auth/profile', payload)
+      // Update local storage user if successful
+      if (response.data && response.data.user) {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...response.data.user }))
+      } else if (response.data && !response.data.user && response.data.name) {
+        // Fallback if the response is directly the user object
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...response.data }))
+      }
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
   forgotPassword: async (email) => {
     try {
       const response = await API.post('/auth/forgot-password', { email })

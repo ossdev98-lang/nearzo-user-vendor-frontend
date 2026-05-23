@@ -24,7 +24,7 @@ const CategoriesSection = ({ selectedCategory, onSelect }) => {
   }
 
   return (
-    <section className="section-padding">
+    <section className="section-padding" id="categories">
       <div className="container">
         {/* Section Header */}
         <motion.div

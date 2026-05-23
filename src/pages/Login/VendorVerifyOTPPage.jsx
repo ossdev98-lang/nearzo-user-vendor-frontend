@@ -2,12 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { KeyRound, ArrowLeft, ArrowRight } from 'lucide-react'
-import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import logo from '../../assets/nearzo-logo.png'
-import { authService } from '../../services/authService'
+import { vendorAuthService } from '../../services/vendorAuthService'
 
-const VerifyOtpPage = () => {
+const VendorVerifyOTPPage = () => {
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const inputRefs = useRef([])
@@ -15,11 +14,11 @@ const VerifyOtpPage = () => {
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
   const email = searchParams.get('email')
-  const type = searchParams.get('type')
+  const type = searchParams.get('type') || 'register'
 
   useEffect(() => {
     if (!email) {
-      navigate('/forgot-password')
+      navigate('/vendor/login')
     }
   }, [email, navigate])
 
@@ -65,12 +64,12 @@ const VerifyOtpPage = () => {
     
     setLoading(true)
     try {
-      await authService.verifyOtp(email, otp)
+      await vendorAuthService.verifyOtp(email, otp)
       toast.success('OTP verified successfully')
       if (type === 'register') {
-        navigate('/login')
+        navigate('/vendor/login')
       } else {
-        navigate(`/reset-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`)
+        navigate(`/vendor/reset-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`)
       }
     } catch (error) {
       toast.error(error.message || 'Invalid OTP')
@@ -81,7 +80,7 @@ const VerifyOtpPage = () => {
 
   const handleResendOtp = async () => {
     try {
-      await authService.resendOtp(email)
+      await vendorAuthService.resendOtp(email)
       toast.success('OTP resent to your email')
     } catch (error) {
       toast.error(error.message || 'Failed to resend OTP')
@@ -89,25 +88,27 @@ const VerifyOtpPage = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row bg-white dark:bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-purple-100/50 dark:border-white/5">
+    <div className="flex flex-col md:flex-row bg-white dark:bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-purple-100/50 dark:border-white/5 w-full">
+      {/* Left Column */}
       <div className="hidden md:block w-1/2 relative min-h-[550px] bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&fit=crop')" }}>
         <div className="absolute inset-0 bg-gradient-to-br from-purple-950/70 to-indigo-900/90 mix-blend-multiply" />
         <div className="absolute inset-0 flex flex-col justify-center items-center p-12 text-white text-center">
           <Link to="/" className="inline-block hover:scale-105 transition-transform">
             <img src={logo} alt="Nearzo Logo" className="h-16 object-contain mb-6 drop-shadow-xl" />
           </Link>
-          <h2 className="text-3xl font-extrabold mb-3 tracking-wide text-white">Verify OTP</h2>
+          <h2 className="text-3xl font-extrabold mb-3 tracking-wide text-white">Partner Program</h2>
           <p className="text-purple-100 text-sm font-light max-w-xs leading-relaxed">
-            Please check your email and enter the code to continue.
+            Verify your email to continue managing your shop on Nearzo.
           </p>
         </div>
       </div>
 
+      {/* Right Column */}
       <div className="p-8 sm:p-12 w-full md:w-1/2 flex flex-col justify-center bg-white dark:bg-gray-900 relative">
         <div className="absolute top-6 left-6 md:top-8 md:left-8">
-          <Link to="/forgot-password" className="flex items-center text-sm font-medium text-gray-500 hover:text-purple-600 transition-colors">
+          <Link to="/vendor/login" className="flex items-center text-sm font-medium text-gray-500 hover:text-purple-600 transition-colors">
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
+            Back to Login
           </Link>
         </div>
 
@@ -119,7 +120,7 @@ const VerifyOtpPage = () => {
 
         <div className="mb-6 mt-2 md:mt-0 text-center md:text-left">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Verify OTP</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the OTP sent to {email}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter the 6-digit OTP sent to {email}</p>
         </div>
 
         <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -138,11 +139,13 @@ const VerifyOtpPage = () => {
               />
             ))}
           </div>
+          
           <Button type="submit" loading={loading} size="lg" className="w-full bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold mt-2">
-            Verify OTP <ArrowRight className="w-4 h-4 inline ml-1" />
+            Verify & Continue <ArrowRight className="w-4 h-4 inline ml-1" />
           </Button>
+          
           <div className="text-center mt-4">
-            <button type="button" onClick={handleResendOtp} className="text-sm text-purple-600 dark:text-purple-400 hover:underline">
+            <button type="button" onClick={handleResendOtp} className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-bold">
               Resend OTP
             </button>
           </div>
@@ -152,4 +155,4 @@ const VerifyOtpPage = () => {
   )
 }
 
-export default VerifyOtpPage
+export default VendorVerifyOTPPage

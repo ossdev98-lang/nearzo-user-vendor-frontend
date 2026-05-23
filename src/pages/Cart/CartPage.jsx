@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { X, Plus, Minus, Trash2, ShoppingCart } from 'lucide-react'
 import Button from '../../components/ui/Button'
 
 const CartPage = () => {
   const { cart, removeFromCart, updateQuantity, cartCount, cartTotal, clearCart } = useApp()
+  const navigate = useNavigate()
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -178,6 +179,7 @@ const CartPage = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/checkout')}
                 className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 transition-all duration-300"
               >
                 Proceed to Checkout

@@ -27,9 +27,9 @@ const ShopPage = () => {
   const categories = ['Home', ...new Set([...shop.categories, ...extendedCategories])]
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pt-16">
+    <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20">
       {/* Banner Area */}
-      <div className="relative w-full h-[250px] sm:h-[350px] bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+      <div className="relative w-full h-[180px] sm:h-[240px] bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <img
           src={shop.image}
           alt={shop.name}
@@ -40,16 +40,16 @@ const ShopPage = () => {
           <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8 flex flex-col md:flex-row md:items-end justify-start gap-6">
             {/* Store Avatar Thumbnail */}
             <div className="hidden md:block shrink-0">
-               <div className="w-40 h-40 bg-white/10 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-white/20">
+               <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white/10 backdrop-blur-md rounded-2xl p-1.5 shadow-2xl border border-white/20">
                  <img src={shop.image} alt={shop.name} className="w-full h-full object-cover rounded-xl" />
                </div>
             </div>
 
-            <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
+            <div className="pb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
                 {shop.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm sm:text-base text-gray-200 mb-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs sm:text-sm text-gray-200 mb-3">
                 <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
                   <Star className="w-4.5 h-4.5 text-yellow-400 fill-yellow-400" />
                   <span className="font-bold text-white">{shop.rating}</span>
