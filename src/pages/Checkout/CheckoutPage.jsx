@@ -37,7 +37,7 @@ const CheckoutPage = () => {
   return (
     <div className="min-h-screen pt-[140px] md:pt-[100px] pb-24 bg-gray-50 dark:bg-gray-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => navigate(-1)} className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 transition-colors text-gray-700 dark:text-gray-300">
@@ -47,10 +47,10 @@ const CheckoutPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Left Column: Details (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
-            
+
             {/* Delivery Address */}
             <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5">
               <div className="flex justify-between items-center mb-4">
@@ -82,7 +82,7 @@ const CheckoutPage = () => {
                 <CreditCard className="w-5 h-5 text-purple-600" />
                 Payment Method
               </h2>
-              
+
               <div className="space-y-3">
                 <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-purple-200'}`}>
                   <div className="flex items-center gap-4">
@@ -121,7 +121,7 @@ const CheckoutPage = () => {
                 <h2 className="text-base font-bold text-gray-900 dark:text-white">Order Summary</h2>
                 <button onClick={() => { setIsCartOpen(true); navigate(-1) }} className="text-sm font-bold text-purple-600 hover:underline">Edit Cart</button>
               </div>
-              
+
               <div className="space-y-4 mb-6 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
                 {cart.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-start">
@@ -161,7 +161,7 @@ const CheckoutPage = () => {
                 <ShieldCheck className="w-4 h-4 text-green-500" /> 100% Safe & Secure Payments
               </div>
 
-              <button 
+              <button
                 onClick={handlePlaceOrder}
                 className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-base font-bold transition-all shadow-md shadow-purple-600/20"
               >

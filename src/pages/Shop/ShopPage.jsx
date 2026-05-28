@@ -1,16 +1,37 @@
-import React, { useState, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Star, MapPin, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
-import { dummyShops } from '../../components/sections/ShopsSection'
+import { Search, Star, MapPin, Clock, ChevronLeft, ChevronRight, Store } from 'lucide-react'
 import ShopProductsSection from '../../components/sections/ShopProductsSection'
+import API from '../../services/api'
 
 const ShopPage = () => {
   const { id } = useParams()
-  const shop = dummyShops.find(s => s.id === parseInt(id)) || dummyShops[0]
+  const navigate = useNavigate()
+  const [shopData, setShopData] = useState(null)
+  const [categoriesList, setCategoriesList] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const scrollRef = useRef(null)
+  const [isScrollable, setIsScrollable] = useState(false)
+
+  const checkScrollable = () => {
+    if (scrollRef.current) {
+      const { scrollWidth, clientWidth } = scrollRef.current
+      setIsScrollable(scrollWidth > clientWidth)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(checkScrollable, 200)
+    window.addEventListener('resize', checkScrollable)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', checkScrollable)
+    }
+  }, [categoriesList, loading])
   
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -22,9 +43,122 @@ const ShopPage = () => {
     }
   }
 
-  // Extended categories for the slider
-  const extendedCategories = ['Fruits', 'Vegetables', 'Dairy & Eggs', 'Bakery', 'Meat', 'Beverages', 'Snacks', 'Personal Care', 'Household']
-  const categories = ['Home', ...new Set([...shop.categories, ...extendedCategories])]
+  useEffect(() => {
+    const fetchShopDetails = async () => {
+      setLoading(true)
+      try {
+        const response = await API.get(`/vendors/${id}/shop`)
+        if (response.data && response.data.success) {
+          setShopData(response.data.shop)
+          setCategoriesList(response.data.categories || [])
+        }
+      } catch (error) {
+        console.error('Error fetching shop details:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (id) {
+      fetchShopDetails()
+    }
+  }, [id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-24 pb-16 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-t-2 border-purple-600 animate-spin"></div>
+          <div className="absolute inset-2 rounded-full border-t-2 border-purple-400 animate-spin-reverse"></div>
+        </div>
+        <p className="mt-6 text-gray-500 dark:text-gray-400 font-bold tracking-wide animate-pulse">Loading shop details...</p>
+      </div>
+    )
+  }
+
+  if (!shopData) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20 flex flex-col items-center justify-center px-4">
+        <div className="w-16 h-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4">
+          <Store className="w-8 h-8 text-red-500" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Shop not found</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm mb-6">
+          We couldn't find the store you were looking for. It might have moved or is temporarily closed.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-6 py-2.5 bg-primary text-white font-semibold rounded-full hover:bg-primary/90 transition-colors shadow-md"
+        >
+          Go Back Home
+        </button>
+      </div>
+    )
+  }
+
+  const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
+  
+  const shop = {
+    id: shopData.id,
+    name: shopData.shopName || 'Nearzo Store',
+    image: shopData.banner 
+      ? `${baseUrlForImage}${shopData.banner}`
+      : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=400&fit=crop'),
+    rating: parseFloat(shopData.rating) > 0 ? parseFloat(shopData.rating).toFixed(1) : '4.5',
+    time: '15-25 mins',
+    address: shopData.address || `${shopData.city || 'Indore'}, ${shopData.state || 'MP'}`
+  }
+
+  const categories = ['Home', ...categoriesList.map(c => c.name)]
+
+  // Helper to extract mapped products
+  const getProducts = () => {
+    let list = []
+    const targetCategories = selectedCategory 
+      ? categoriesList.filter(c => c.name === selectedCategory)
+      : categoriesList
+
+    targetCategories.forEach(cat => {
+      if (Array.isArray(cat.subCategories)) {
+        cat.subCategories.forEach(sub => {
+          if (Array.isArray(sub.products)) {
+            sub.products.forEach(prod => {
+              const discount = prod.discountPrice && prod.discountPrice < prod.price
+                ? Math.round(((prod.price - prod.discountPrice) / prod.price) * 100)
+                : 0
+
+              const prodImage = prod.variants && prod.variants.length > 0 && prod.variants[0].image
+                ? `${baseUrlForImage}${prod.variants[0].image}`
+                : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop')
+
+              list.push({
+                id: prod.id,
+                name: prod.name,
+                storeName: shopData.shopName || 'Nearzo Store',
+                category: cat.name,
+                price: prod.discountPrice || prod.price,
+                unit: prod.unit || 'piece',
+                discount: discount,
+                image: prodImage,
+                rating: 4.5,
+                reviews: 8,
+                isNew: false,
+                variants: prod.variants || []
+              })
+            })
+          }
+        })
+      }
+    })
+
+    // If there is a search query, filter by name
+    if (searchQuery.trim()) {
+      return list.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    }
+
+    return list
+  }
+
+  const products = getProducts()
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20">
@@ -63,13 +197,6 @@ const ShopPage = () => {
                   <span className="font-medium text-white">{shop.address}</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {shop.categories.map((cat, idx) => (
-                  <span key={idx} className="px-3 py-1 bg-primary/90 backdrop-blur-md text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm">
-                    {cat}
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
         </div>
@@ -86,18 +213,16 @@ const ShopPage = () => {
                 {shop.name}
               </span>
 
-              <button className="hidden sm:flex shrink-0 items-center justify-center px-4 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-medium text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                Follow
-              </button>
-
               {/* Slider Section */}
               <div className="relative flex-1 flex items-center min-w-0 ml-2">
-                <button 
-                  onClick={() => scroll('left')}
-                  className="hidden sm:flex absolute left-0 z-10 p-1 bg-gradient-to-r from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
+                {isScrollable && (
+                  <button 
+                    onClick={() => scroll('left')}
+                    className="hidden sm:flex absolute left-0 z-10 p-1 bg-gradient-to-r from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
 
                 <div 
                   ref={scrollRef}
@@ -117,26 +242,18 @@ const ShopPage = () => {
                   ))}
                 </div>
 
-                <button 
-                  onClick={() => scroll('right')}
-                  className="hidden sm:flex absolute right-0 z-10 p-1 bg-gradient-to-l from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                {isScrollable && (
+                  <button 
+                    onClick={() => scroll('right')}
+                    className="hidden sm:flex absolute right-0 z-10 p-1 bg-gradient-to-l from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Right side search */}
-            <div className="hidden lg:flex items-center ml-4 shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={`Search all ${shop.name}`}
-                  className="w-48 xl:w-64 pl-9 pr-4 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
-                />
-              </div>
-            </div>
+
 
           </div>
         </div>
@@ -163,7 +280,7 @@ const ShopPage = () => {
 
       {/* Products Section */}
       <div className="pb-20">
-        <ShopProductsSection selectedCategory={selectedCategory} />
+        <ShopProductsSection selectedCategory={selectedCategory} products={products} />
       </div>
 
     </div>

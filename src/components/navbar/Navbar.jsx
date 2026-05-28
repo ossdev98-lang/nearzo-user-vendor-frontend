@@ -18,6 +18,7 @@ import {
 import logo from '../../assets/nearzo-logo.png'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
 import { authService } from '../../services/authService'
+import API from '../../services/api'
 
 const getAvatarUrl = (avatar) => {
   if (!avatar) return dummyUserImage;
@@ -37,8 +38,53 @@ const Navbar = () => {
   const [searchTypeDropdownOpen, setSearchTypeDropdownOpen] = useState(false)
   const [manualLocation, setManualLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
-  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser } = useApp()
+  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates } = useApp()
   const navigate = useNavigate()
+
+  const [suggestions, setSuggestions] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.trim().length >= 2) {
+        setSearchLoading(true)
+        setShowSuggestions(true)
+        try {
+          const endpoint = searchType === 'products'
+            ? `/search?products=${encodeURIComponent(searchQuery)}`
+            : `/search?vendor=${encodeURIComponent(searchQuery)}`
+
+          const response = await API.get(endpoint)
+          if (response.data && Array.isArray(response.data.results)) {
+            setSuggestions(response.data.results)
+          } else {
+            setSuggestions([])
+          }
+        } catch (error) {
+          console.error('Search error:', error)
+          setSuggestions([])
+        } finally {
+          setSearchLoading(false)
+        }
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchQuery, searchType])
+
+  const handleSuggestionClick = (item) => {
+    setSearchQuery('')
+    setShowSuggestions(false)
+    if (searchType === 'products') {
+      navigate(`/product/${item.id}`)
+    } else {
+      navigate(`/shop/${item.id}`)
+    }
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -62,6 +108,7 @@ const Navbar = () => {
         async (position) => {
           try {
             const { latitude, longitude } = position.coords
+            updateCoordinates(latitude, longitude)
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
             const data = await res.json()
             if (data && data.address) {
@@ -162,8 +209,93 @@ const Navbar = () => {
         placeholder={searchType === 'products' ? "Search fresh groceries..." : "Search local shops..."}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={() => { if (searchQuery.trim().length >= 2) setShowSuggestions(true) }}
         className="ml-2 bg-transparent outline-none text-sm text-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 w-full py-2.5 pr-4"
       />
+
+      {/* Suggestions Dropdown Container */}
+      <AnimatePresence>
+        {showSuggestions && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setShowSuggestions(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 overflow-hidden z-40 max-h-[380px] overflow-y-auto"
+            >
+              {searchLoading ? (
+                <div className="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
+                  <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-semibold tracking-wide">Searching...</span>
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="p-2 divide-y divide-gray-50 dark:divide-white/5">
+                  {suggestions.map((item) => {
+                    const isProduct = searchType === 'products'
+                    const name = isProduct
+                      ? (item.name || item.Product?.name || 'Product')
+                      : (item.shopName || item.name || 'Store')
+
+                    const imagePath = isProduct
+                      ? (item.primaryImage || item.Product?.primaryImage || item.image)
+                      : (item.logo || item.banner || item.image)
+
+                    const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
+                    const imageUrl = imagePath
+                      ? (imagePath.startsWith('http') ? imagePath : `${baseUrlForImage}${imagePath}`)
+                      : (isProduct
+                        ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=80&h=80&fit=crop'
+                        : 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=80&h=80&fit=crop')
+
+                    const categoryName = isProduct
+                      ? (item.categoryName || item.Product?.categoryName || 'Groceries')
+                      : (item.ShopCategory?.shopCategoryName || item.shopCategoryName || 'Store')
+
+                    const shopName = isProduct
+                      ? (item.shopName || item.Vendor?.shopName || item.shop?.shopName || '')
+                      : ''
+
+                    const price = isProduct
+                      ? (item.discountPrice || item.price || item.Product?.price)
+                      : null
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSuggestionClick(item)}
+                        className="flex items-center gap-4 p-3 hover:bg-purple-50/50 dark:hover:bg-purple-500/10 cursor-pointer transition-colors rounded-xl"
+                      >
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-gray-800">
+                          <img
+                            src={imageUrl}
+                            alt={name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                            {name}
+                          </h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold truncate mt-0.5">
+                            {categoryName} {shopName && `• ${shopName}`} {price !== null && `• ₹${price}`}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                  <p className="text-sm font-bold">No results found</p>
+                  <p className="text-xs mt-1">Try searching with a different keyword</p>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 
@@ -264,8 +396,13 @@ const Navbar = () => {
               {locationSelectorContent}
             </div>
 
-            {/* Search Bar - Center on Desktop, Flex-1 on Mobile next to Logo */}
-            <div className="flex-1 w-full max-w-3xl">
+            {/* Mobile Header Location Selector */}
+            <div className="md:hidden flex-grow max-w-[170px] sm:max-w-xs relative shrink-0">
+              {locationSelectorContent}
+            </div>
+
+            {/* Desktop-only Search Bar */}
+            <div className="hidden md:block flex-1 w-full max-w-3xl">
               {searchBarContent}
             </div>
 
@@ -311,7 +448,7 @@ const Navbar = () => {
               </motion.button>
 
               {/* Auth / Profile Dropdown */}
-              <div className={`relative ${!user ? 'hidden md:block' : 'block'}`}>
+              <div className="relative hidden md:block">
                 {user ? (
                   <>
                     <motion.button
@@ -430,10 +567,10 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Mobile Location Bar */}
+          {/* Mobile Search Bar */}
           <div className="md:hidden pb-4">
             <div className="relative w-full">
-              {locationSelectorContent}
+              {searchBarContent}
             </div>
           </div>
         </div>

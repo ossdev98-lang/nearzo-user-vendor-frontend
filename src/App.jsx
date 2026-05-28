@@ -38,12 +38,21 @@ const VendorProtectedRoute = ({ children }) => {
 
 const App = () => {
   const location = useLocation()
+  const [isInitialMount, setIsInitialMount] = useState(true)
   const [isPageLoading, setIsPageLoading] = useState(true)
+
+  useEffect(() => {
+    // Keep splash loader on screen for 1.8 seconds on initial app startup
+    const timer = setTimeout(() => {
+      setIsInitialMount(false)
+    }, 1800)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     // Only show loader on the Home page and Login page to avoid annoying the user on every click
     const routesWithLoader = ['/', '/login']
-    
+
     if (routesWithLoader.includes(location.pathname)) {
       setIsPageLoading(true)
       const timer = setTimeout(() => {
@@ -54,6 +63,8 @@ const App = () => {
       setIsPageLoading(false)
     }
   }, [location.pathname])
+
+  const showLoader = isInitialMount || isPageLoading
 
   return (
     <>
@@ -252,7 +263,7 @@ const App = () => {
       </AnimatePresence>
       <InstallPWA />
       <BottomNav />
-      <LoadingScreen isVisible={isPageLoading} />
+      <LoadingScreen isVisible={showLoader} />
     </>
   )
 }

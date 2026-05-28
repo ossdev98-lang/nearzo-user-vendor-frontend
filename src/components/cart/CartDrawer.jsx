@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react'
@@ -6,6 +7,18 @@ import { useNavigate } from 'react-router-dom'
 const CartDrawer = () => {
   const { isCartOpen, setIsCartOpen, cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useApp()
   const navigate = useNavigate()
+  const [removingIds, setRemovingIds] = useState([])
+
+  const handleRemove = async (itemId) => {
+    setRemovingIds(prev => [...prev, itemId])
+    try {
+      await removeFromCart(itemId)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRemovingIds(prev => prev.filter(id => id !== itemId))
+    }
+  }
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -105,10 +118,15 @@ const CartDrawer = () => {
                             <p className="text-xs text-gray-500 mt-0.5">{item.unit}</p>
                           </div>
                           <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
+                            onClick={() => handleRemove(item.id)}
+                            disabled={removingIds.includes(item.id)}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {removingIds.includes(item.id) ? (
+                              <div className="w-4 h-4 border-t-2 border-r-2 border-red-500 rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
 

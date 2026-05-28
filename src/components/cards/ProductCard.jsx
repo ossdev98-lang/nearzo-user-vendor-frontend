@@ -3,13 +3,18 @@ import { useApp } from '../../context/AppContext'
 import { ShoppingCart, Heart, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-const ProductCard = ({ product, index }) => {
+const ProductCard = ({ product, index, showAddToCart = true }) => {
   const navigate = useNavigate()
   const { addToCart, cart } = useApp()
-  const isInCart = cart.some((item) => item.id === product.id)
+  const isInCart = cart.some((item) => item.vendorProductId === product.id || item.id === product.id)
   const avgRating = product.rating || 5.0
   const reviewCount = product.reviews || 0
-  const originalPrice = product.price / (1 - product.discount / 100)
+  const originalPrice = product.price / (1 - (product.discount || 0) / 100)
+
+  const handleNavigate = (e) => {
+    if (e) e.stopPropagation()
+    navigate(`/product/${product.id}`)
+  }
 
   return (
     <motion.div
@@ -18,11 +23,11 @@ const ProductCard = ({ product, index }) => {
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.08 }}
       whileHover={{ y: -6, scale: 1.02 }}
-      onClick={() => navigate(`/product/${product.id}`)}
-      className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100"
+      onClick={handleNavigate}
+      className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100 dark:bg-gray-900 dark:border-gray-800"
     >
       {/* Image Container */}
-      <div className="relative bg-[#F8F9FA] rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+      <div className="relative bg-[#F8F9FA] dark:bg-gray-800 rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center p-2 sm:p-4 overflow-hidden">
         {/* Discount Badge */}
         {product.discount > 0 && (
           <div className="absolute top-3 left-3 z-10">
@@ -35,7 +40,7 @@ const ProductCard = ({ product, index }) => {
         <img
           src={product.image}
           alt={product.name}
-          className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+          className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-110 transition-transform duration-500"
           loading="lazy"
         />
       </div>
@@ -49,7 +54,7 @@ const ProductCard = ({ product, index }) => {
           </p>
         )}
         {/* Title */}
-        <h3 className="text-[13px] sm:text-[15px] font-semibold text-gray-800 leading-tight line-clamp-2 mb-1">
+        <h3 className="text-[13px] sm:text-[15px] font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
           {product.name}
         </h3>
 
@@ -59,11 +64,10 @@ const ProductCard = ({ product, index }) => {
             {[1, 2, 3, 4, 5].map((star) => (
               <Star
                 key={star}
-                className={`w-3.5 h-3.5 ${
-                  star <= Math.floor(avgRating)
-                    ? 'text-[#FFB800] fill-[#FFB800]'
-                    : 'text-gray-200 fill-gray-200'
-                }`}
+                className={`w-3.5 h-3.5 ${star <= Math.floor(avgRating)
+                  ? 'text-[#FFB800] fill-[#FFB800]'
+                  : 'text-gray-200 fill-gray-200'
+                  }`}
               />
             ))}
           </div>
@@ -90,26 +94,18 @@ const ProductCard = ({ product, index }) => {
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-            <button className="text-gray-400 hover:text-[#FF4A55] transition-colors p-1.5 sm:p-1 rounded-full border border-gray-100 hover:border-[#FF4A55] hover:bg-red-50">
-              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                addToCart(product)
-              }}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold sm:font-semibold text-[11px] sm:text-sm transition-colors shadow-sm ${
-                isInCart
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white'
-              }`}
-            >
-              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{isInCart ? 'Added' : 'Add'}</span>
-            </button>
-          </div>
+          {/* Actions - Only shown if explicitly asked */}
+          {showAddToCart && (
+            <div className="flex items-center justify-center border-t border-gray-100 dark:border-gray-800 pt-3">
+              <button
+                onClick={handleNavigate}
+                className={`w-full flex items-center justify-center gap-1 sm:gap-1.5 py-2 rounded-full font-bold sm:font-semibold text-[11px] sm:text-sm transition-colors shadow-sm bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white`}
+              >
+                <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Add to Cart</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

@@ -43,11 +43,27 @@ const LoginPage = () => {
       const role = new URLSearchParams(window.location.search).get('role') || 'user'
       const data = await authService.login({ email, password, role })
       toast.success('Welcome back! Login successful')
-      
+
       const loggedUser = data.user || data.data || { name: 'User' }
       setUser(loggedUser)
-      
-      navigate('/')
+
+      // Redirect to checkout/order page if local cart is not empty
+      const localCartStr = localStorage.getItem('cart')
+      let hasLocalCart = false
+      if (localCartStr) {
+        try {
+          const items = JSON.parse(localCartStr)
+          if (Array.isArray(items) && items.length > 0) {
+            hasLocalCart = true
+          }
+        } catch {}
+      }
+
+      if (hasLocalCart) {
+        navigate('/checkout')
+      } else {
+        navigate('/')
+      }
     } catch (error) {
       const errorMsg = error.message?.toLowerCase() || ''
       if (errorMsg.includes('verify') || errorMsg.includes('verified') || error.status === 403) {
@@ -70,7 +86,7 @@ const LoginPage = () => {
           <Link to="/" className="inline-block hover:scale-105 transition-transform">
             <img src={logo} alt="Nearzo Logo" className="h-16 object-contain mb-6 drop-shadow-xl" />
           </Link>
-          <h2 className="text-3xl font-extrabold mb-3 tracking-wide text-white">Welcome to Nearzo</h2>
+          <h2 className="text-3xl font-extrabold mb-3 tracking-wide text-white">Welcome to NearZo</h2>
           <p className="text-purple-100 text-sm font-light max-w-xs leading-relaxed">
             Your premium neighborhood marketplace. Sourcing freshness, delivering delight.
           </p>

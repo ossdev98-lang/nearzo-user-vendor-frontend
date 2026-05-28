@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { MapPin, Star, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useApp } from '../../context/AppContext'
+import API from '../../services/api'
 
 export const dummyShops = [
   { id: 1, name: 'Fresh Mart', categories: ['Fruits', 'Vegetables'], image: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=400&h=300&fit=crop', rating: 4.8, time: '10-15 mins', address: '123 Main St' },
@@ -14,9 +16,96 @@ export const dummyShops = [
 
 export default function ShopsSection({ selectedCategory }) {
   const navigate = useNavigate()
+  const { coordinates } = useApp()
+  const [shops, setShops] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchNearbyShops = async () => {
+      setLoading(true)
+      try {
+        const response = await API.get('/vendors/nearby', {
+          params: {
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude
+          }
+        })
+        if (response.data && response.data.success && Array.isArray(response.data.vendors)) {
+          const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
+          
+          const mappedShops = response.data.vendors.map(vendor => {
+            const categories = vendor.products && vendor.products.length > 0
+              ? Array.from(new Set(vendor.products.map(p => p.categoryName).filter(Boolean)))
+              : ['Groceries']
+            const finalCategories = categories.length > 0 ? categories : ['Groceries']
+
+            const shopCategory = vendor.ShopCategory?.shopCategoryName || vendor.shopCategoryName || 'Groceries'
+
+            const imageUrl = vendor.logo
+              ? (vendor.logo.startsWith('http') ? vendor.logo : `${baseUrlForImage}${vendor.logo}`)
+              : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'
+
+            const calculatedTime = vendor.distanceKm 
+              ? `${Math.round(vendor.distanceKm * 5 + 10)}-${Math.round(vendor.distanceKm * 5 + 15)} mins`
+              : '10-20 mins'
+
+            const distanceStr = vendor.distanceKm !== undefined
+              ? `${vendor.distanceKm.toFixed(2)} km away`
+              : 'Nearby'
+
+            return {
+              id: vendor.id,
+              name: vendor.shopName || 'Nearzo Store',
+              categories: finalCategories,
+              shopCategory: shopCategory,
+              image: imageUrl,
+              rating: vendor.rating || 4.5,
+              time: calculatedTime,
+              address: distanceStr
+            }
+          })
+          setShops(mappedShops)
+        } else {
+          setShops([])
+        }
+      } catch (error) {
+        console.error('Error fetching nearby shops:', error)
+        setShops([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (coordinates.latitude && coordinates.longitude) {
+      fetchNearbyShops()
+    }
+  }, [coordinates.latitude, coordinates.longitude])
+
   const filteredShops = selectedCategory
-    ? dummyShops.filter(shop => shop.categories.includes(selectedCategory))
-    : dummyShops
+    ? shops.filter(shop => shop.shopCategory && shop.shopCategory.toLowerCase() === selectedCategory.toLowerCase())
+    : shops
+
+  if (loading) {
+    return (
+      <section className="py-8 bg-white dark:bg-gray-900">
+        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-6">
+            <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2"></div>
+            <div className="h-4 w-96 bg-gray-100 dark:bg-gray-800 rounded animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 sm:gap-x-5 sm:gap-y-10">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex flex-col animate-pulse">
+                <div className="w-full aspect-[4/3] rounded-xl sm:rounded-2xl bg-gray-200 dark:bg-gray-800 mb-3"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="py-8 bg-white dark:bg-gray-900">
@@ -70,11 +159,6 @@ export default function ShopsSection({ selectedCategory }) {
                     <div className="flex items-center gap-1 truncate max-w-[120px] sm:max-w-[100px]">
                       <span className="truncate">{shop.address}</span>
                     </div>
-                  </div>
-
-                  {/* Categories */}
-                  <div className="mt-1.5 text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 truncate font-medium">
-                    {shop.categories.join(', ')}
                   </div>
                 </div>
               </div>

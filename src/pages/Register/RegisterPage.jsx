@@ -12,11 +12,15 @@ import {
   ArrowRight,
   ArrowLeft,
   Leaf,
+  MapPin,
+  Loader2,
 } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import logo from '../../assets/nearzo-logo.png'
 import { authService } from '../../services/authService'
+
+import { useEffect } from 'react'
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -26,12 +30,43 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     avatar: null,
+    latitude: '',
+    longitude: ''
   })
   const [loading, setLoading] = useState(false)
+  const [locationLoading, setLocationLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const navigate = useNavigate()
+
+  const getLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      return
+    }
+    setLocationLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: position.coords.latitude.toString(),
+          longitude: position.coords.longitude.toString()
+        }))
+        setLocationLoading(false)
+        toast.success('Location fetched successfully')
+      },
+      (error) => {
+        setLocationLoading(false)
+        toast.error('Unable to retrieve your location. Please allow location access.')
+      }
+    )
+  }
+
+  // Auto-fetch location on page mount
+  useEffect(() => {
+    getLocation()
+  }, [])
 
   const handleChange = (e) => {
     const { name, value, type, files } = e.target
@@ -78,6 +113,11 @@ const RegisterPage = () => {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
+    if (!formData.latitude || !formData.longitude) {
+      toast.error('Location is required. Please wait for it to be fetched.')
+      return false
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -93,6 +133,8 @@ const RegisterPage = () => {
       formDataToSend.append('email', formData.email)
       formDataToSend.append('phone', formData.phone)
       formDataToSend.append('password', formData.password)
+      formDataToSend.append('latitude', formData.latitude)
+      formDataToSend.append('longitude', formData.longitude)
       if (formData.avatar) {
         formDataToSend.append('avatar', formData.avatar)
       }
@@ -224,6 +266,59 @@ const RegisterPage = () => {
             error={errors.confirmPassword}
             icon={<Lock className="w-4 h-4 text-gray-400" />}
           />
+
+          {/* Latitude & Longitude Coordinates (Always Visible & Disabled) */}
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Latitude *" 
+              name="latitude" 
+              value={formData.latitude} 
+              disabled={true}
+              className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed font-semibold text-sm"
+              placeholder={locationLoading ? "Detecting..." : "Auto-filled"} 
+              icon={<MapPin className="w-4 h-4 text-gray-400" />}
+            />
+            <Input 
+              label="Longitude *" 
+              name="longitude" 
+              value={formData.longitude} 
+              disabled={true}
+              className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed font-semibold text-sm"
+              placeholder={locationLoading ? "Detecting..." : "Auto-filled"} 
+              icon={<MapPin className="w-4 h-4 text-gray-400" />}
+            />
+          </div>
+
+          {/* Location status / Fetch button */}
+          <div className="pt-1">
+            {locationLoading ? (
+              <div className="flex items-center gap-2 justify-center py-2 text-purple-600 dark:text-purple-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-xs font-bold">Auto-fetching coordinates...</span>
+              </div>
+            ) : (!formData.latitude || !formData.longitude) ? (
+              <div className="text-center bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-2xl p-3">
+                <p className="text-xs text-red-500 dark:text-red-400 font-bold mb-2">Location access required to sign up.</p>
+                <button 
+                  type="button" 
+                  onClick={getLocation} 
+                  className="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md"
+                >
+                  Allow & Detect Location
+                </button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <button 
+                  type="button" 
+                  onClick={getLocation} 
+                  className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
+                >
+                  Detect Location Coordinates Again
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Terms */}
           <div className="flex items-start gap-2 pt-1 pb-2">

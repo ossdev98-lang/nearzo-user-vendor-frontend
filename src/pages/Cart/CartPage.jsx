@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
 import { Link, useNavigate } from 'react-router-dom'
@@ -7,6 +8,18 @@ import Button from '../../components/ui/Button'
 const CartPage = () => {
   const { cart, removeFromCart, updateQuantity, cartCount, cartTotal, clearCart } = useApp()
   const navigate = useNavigate()
+  const [removingIds, setRemovingIds] = useState([])
+
+  const handleRemove = async (itemId) => {
+    setRemovingIds(prev => [...prev, itemId])
+    try {
+      await removeFromCart(itemId)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRemovingIds(prev => prev.filter(id => id !== itemId))
+    }
+  }
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -128,10 +141,15 @@ const CartPage = () => {
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                      onClick={() => handleRemove(item.id)}
+                      disabled={removingIds.includes(item.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {removingIds.includes(item.id) ? (
+                        <div className="w-4 h-4 border-t-2 border-r-2 border-red-500 rounded-full animate-spin"></div>
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </motion.button>
                   </div>
                 </motion.div>

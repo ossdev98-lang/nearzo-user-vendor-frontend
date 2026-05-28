@@ -14,11 +14,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AppProvider>
-        <App />
-        <Toaster
+  // <StrictMode>
+  <BrowserRouter>
+    <AppProvider>
+      <App />
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 3000,
@@ -47,7 +47,7 @@ createRoot(document.getElementById('root')).render(
           },
         }}
       />
-      </AppProvider>
-    </BrowserRouter>
-  </StrictMode>
+    </AppProvider>
+  </BrowserRouter>
+  // </StrictMode>
 )
