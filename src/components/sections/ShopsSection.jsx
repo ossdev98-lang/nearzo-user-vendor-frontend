@@ -14,6 +14,19 @@ export const dummyShops = [
   { id: 8, name: 'Healthy Bites', categories: ['Fruits', 'Snacks'], image: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=400&h=300&fit=crop', rating: 4.7, time: '12-18 mins', address: '753 Walnut St' }
 ]
 
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+  return R * c;
+}
+
 export default function ShopsSection({ selectedCategory }) {
   const navigate = useNavigate()
   const { coordinates } = useApp()
@@ -45,12 +58,15 @@ export default function ShopsSection({ selectedCategory }) {
               ? (vendor.logo.startsWith('http') ? vendor.logo : `${baseUrlForImage}${vendor.logo}`)
               : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'
 
-            const calculatedTime = vendor.distanceKm 
-              ? `${Math.round(vendor.distanceKm * 5 + 10)}-${Math.round(vendor.distanceKm * 5 + 15)} mins`
+            const calculatedDist = calculateDistance(coordinates?.latitude, coordinates?.longitude, vendor.latitude, vendor.longitude);
+            const dist = calculatedDist !== null ? calculatedDist : vendor.distanceKm;
+
+            const calculatedTime = dist !== undefined && dist !== null
+              ? `${Math.round(dist * 5 + 10)}-${Math.round(dist * 5 + 15)} mins`
               : '10-20 mins'
 
-            const distanceStr = vendor.distanceKm !== undefined
-              ? `${vendor.distanceKm.toFixed(2)} km away`
+            const distanceStr = dist !== undefined && dist !== null
+              ? `${dist.toFixed(2)} km away`
               : 'Nearby'
 
             return {

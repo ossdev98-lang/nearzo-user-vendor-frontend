@@ -63,7 +63,7 @@ const InstallPWA = () => {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-[9999] flex items-center justify-between sm:justify-start bg-white dark:bg-gray-800 rounded-2xl sm:rounded-full shadow-2xl overflow-hidden ring-1 ring-black/5"
+            className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 md:hidden z-[9999] flex items-center justify-between sm:justify-start bg-white dark:bg-gray-800 rounded-2xl sm:rounded-full shadow-2xl overflow-hidden ring-1 ring-black/5"
           >
             <button
               onClick={handleInstallClick}

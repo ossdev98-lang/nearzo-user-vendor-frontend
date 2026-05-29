@@ -3,11 +3,26 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Search, Star, MapPin, Clock, ChevronLeft, ChevronRight, Store } from 'lucide-react'
 import ShopProductsSection from '../../components/sections/ShopProductsSection'
+import { useApp } from '../../context/AppContext'
 import API from '../../services/api'
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+  return R * c;
+}
 
 const ShopPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { coordinates } = useApp()
   const [shopData, setShopData] = useState(null)
   const [categoriesList, setCategoriesList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,6 +112,17 @@ const ShopPage = () => {
 
   const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
   
+  const calculatedDist = calculateDistance(coordinates?.latitude, coordinates?.longitude, shopData.latitude, shopData.longitude);
+  const dist = calculatedDist !== null ? calculatedDist : shopData.distanceKm;
+
+  const calculatedTime = dist !== undefined && dist !== null
+    ? `${Math.round(dist * 5 + 10)}-${Math.round(dist * 5 + 15)} mins`
+    : '15-25 mins'
+
+  const distanceStr = dist !== undefined && dist !== null
+    ? `${dist.toFixed(2)} km away`
+    : (shopData.address || `${shopData.city || 'Indore'}, ${shopData.state || 'MP'}`)
+
   const shop = {
     id: shopData.id,
     name: shopData.shopName || 'Nearzo Store',
@@ -104,8 +130,8 @@ const ShopPage = () => {
       ? `${baseUrlForImage}${shopData.banner}`
       : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=400&fit=crop'),
     rating: parseFloat(shopData.rating) > 0 ? parseFloat(shopData.rating).toFixed(1) : '4.5',
-    time: '15-25 mins',
-    address: shopData.address || `${shopData.city || 'Indore'}, ${shopData.state || 'MP'}`
+    time: calculatedTime,
+    address: distanceStr
   }
 
   const categories = ['Home', ...categoriesList.map(c => c.name)]
