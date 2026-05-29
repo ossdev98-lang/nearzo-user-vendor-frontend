@@ -73,7 +73,7 @@ export default function CategoryPills({ selected, onSelect }) {
   }
 
   return (
-    <div className="w-full border-b border-gray-100 bg-white">
+    <div id="categories" className="w-full border-b border-gray-100 bg-white">
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4 py-3">
           {/* Left GIF */}

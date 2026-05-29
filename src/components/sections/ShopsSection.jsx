@@ -176,14 +176,18 @@ export default function ShopsSection({ selectedCategory }) {
                 transition={{ duration: 0.5, delay: index * 0.08 }}
                 whileHover={{ y: -6, scale: 1.02 }}
                 onClick={() => navigate(`/shop/${shop.id}`)}
-                className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100 dark:bg-gray-900 dark:border-gray-800"
+                className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100 dark:bg-gray-900 dark:border-gray-800 overflow-hidden min-w-0"
               >
                 {/* Image Container */}
-                <div className="relative bg-[#F8F9FA] dark:bg-gray-800 rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center overflow-hidden">
+                <div className="relative bg-[#F8F9FA] dark:bg-gray-800 rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center overflow-hidden shrink-0">
                   <img
                     src={shop.image}
                     alt={shop.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop';
+                    }}
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -223,7 +227,7 @@ export default function ShopsSection({ selectedCategory }) {
 
                   <div className="mt-auto">
                     {/* Time and Distance */}
-                    <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
+                    <div className="flex flex-wrap items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3 gap-y-2">
                       <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300">
                         <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#6C4CF1]" />
                         <span>{shop.time}</span>

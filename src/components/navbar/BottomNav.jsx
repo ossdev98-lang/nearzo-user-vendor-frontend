@@ -1,4 +1,4 @@
-import { Home, LayoutGrid, ShoppingCart, User } from 'lucide-react'
+import { Home, Search, ShoppingCart, User } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
@@ -17,7 +17,7 @@ const BottomNav = () => {
 
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },
-    { label: 'Categories', icon: LayoutGrid, path: '#categories' },
+    { label: 'Search', icon: Search, path: '#search' },
     { label: 'Cart', icon: ShoppingCart, path: '/cart', badge: cartCount },
     { label: 'Profile', icon: User, path: user ? '/profile' : '/login' }
   ]
@@ -31,26 +31,28 @@ const BottomNav = () => {
             to={item.path}
             className={({ isActive }) => 
               `relative flex flex-col items-center justify-center w-full h-full gap-1 ${
-                isActive && item.path !== '#categories' ? 'text-primary' : 'text-gray-500 dark:text-gray-400'
+                isActive && item.path !== '#search' ? 'text-primary' : 'text-gray-500 dark:text-gray-400'
               }`
             }
             onClick={(e) => {
               if (item.label === 'Cart') {
                 e.preventDefault()
                 setIsCartOpen(true)
-              } else if (item.path === '#categories') {
+              } else if (item.path === '#search') {
                 e.preventDefault()
                 if (location.pathname !== '/') {
-                  navigate('/#categories')
+                  navigate('/')
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                    const searchInput = document.querySelector('input[placeholder="Search fresh groceries..."]')
+                    if (searchInput) searchInput.focus()
+                  }, 100)
                 } else {
-                  const el = document.getElementById('categories')
-                  if (el) {
-                    const yOffset = -140 // offset for mobile header
-                    const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset
-                    window.scrollTo({ top: y, behavior: 'smooth' })
-                  } else {
-                    window.scrollTo({ top: 500, behavior: 'smooth' })
-                  }
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                  setTimeout(() => {
+                    const searchInput = document.querySelector('input[placeholder="Search fresh groceries..."]')
+                    if (searchInput) searchInput.focus()
+                  }, 300)
                 }
               }
             }}
