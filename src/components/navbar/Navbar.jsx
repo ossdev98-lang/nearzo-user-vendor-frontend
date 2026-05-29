@@ -18,7 +18,7 @@ import {
 import logo from '../../assets/nearzo-logo.png'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
 import { authService } from '../../services/authService'
-import API from '../../services/api'
+import { searchService } from '../../services/searchService'
 
 const getAvatarUrl = (avatar) => {
   if (!avatar) return dummyUserImage;
@@ -38,6 +38,7 @@ const Navbar = () => {
   const [searchTypeDropdownOpen, setSearchTypeDropdownOpen] = useState(false)
   const [manualLocation, setManualLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
+  const [applying, setApplying] = useState(false)
   const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates } = useApp()
   const navigate = useNavigate()
 
@@ -51,13 +52,9 @@ const Navbar = () => {
         setSearchLoading(true)
         setShowSuggestions(true)
         try {
-          const endpoint = searchType === 'products'
-            ? `/search?products=${encodeURIComponent(searchQuery)}`
-            : `/search?vendor=${encodeURIComponent(searchQuery)}`
-
-          const response = await API.get(endpoint)
-          if (response.data && Array.isArray(response.data.results)) {
-            setSuggestions(response.data.results)
+          const data = await searchService.search(searchQuery, searchType)
+          if (data && Array.isArray(data.results)) {
+            setSuggestions(data.results)
           } else {
             setSuggestions([])
           }
@@ -138,12 +135,33 @@ const Navbar = () => {
     fetchLocation()
   }, [])
 
-  const handleManualLocationSubmit = (e) => {
+  const handleManualLocationSubmit = async (e) => {
     e.preventDefault()
     if (manualLocation.trim()) {
-      setPrimaryLocation(manualLocation.trim())
-      setSecondaryLocation('Custom Location')
-      setLocationModalOpen(false)
+      setApplying(true)
+      try {
+        const query = encodeURIComponent(manualLocation.trim())
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+        const data = await res.json()
+        
+        if (data && data.length > 0) {
+          const { lat, lon, display_name, name } = data[0]
+          updateCoordinates(parseFloat(lat), parseFloat(lon))
+          
+          const parts = display_name.split(', ')
+          setPrimaryLocation(name || parts[0])
+          setSecondaryLocation(parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location')
+          setLocationModalOpen(false)
+          setManualLocation('')
+        } else {
+          alert('Location not found. Please try another city or area.')
+        }
+      } catch (error) {
+        console.error('Error finding manual location:', error)
+        alert('Could not search location right now.')
+      } finally {
+        setApplying(false)
+      }
     }
   }
 
@@ -357,8 +375,16 @@ const Navbar = () => {
                   className="flex-1 w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-purple-500 dark:text-white text-sm"
                   required
                 />
-                <button type="submit" className="bg-purple-600 text-white px-5 rounded-xl font-semibold hover:bg-purple-700 transition-colors text-sm">
-                  Apply
+                <button 
+                  type="submit" 
+                  disabled={applying}
+                  className="bg-purple-600 text-white px-5 rounded-xl font-semibold hover:bg-purple-700 transition-colors text-sm disabled:opacity-70 flex items-center justify-center min-w-[75px]"
+                >
+                  {applying ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    'Apply'
+                  )}
                 </button>
               </form>
             </motion.div>

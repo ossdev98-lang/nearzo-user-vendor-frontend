@@ -1,5 +1,7 @@
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import ProductCard from '../cards/ProductCard'
+import { vendorService } from '../../services/vendorService'
 
 export const productsData = [
   { id: 1, name: 'Organic Bananas', storeName: 'Fresh Mart', category: 'Fruits', price: 45.0, unit: 'kg', discount: 20, image: 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?w=400&h=400&fit=crop', rating: 4.8, reviews: 234, isNew: false },
@@ -13,10 +15,62 @@ export const productsData = [
 ]
 
 const PopularProductsSection = ({ selectedCategory }) => {
-  const items = selectedCategory ? productsData.filter((p) => p.category === selectedCategory) : productsData
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchBestSelling = async () => {
+      try {
+        const data = await vendorService.getBestSellingProducts()
+        let fetchedProducts = []
+        if (data && data.success && data.bestSellingProducts) {
+          fetchedProducts = data.bestSellingProducts
+        } else if (data && data.bestSellingProducts) {
+          fetchedProducts = data.bestSellingProducts
+        } else if (data && data.success && data.products) {
+          fetchedProducts = data.products
+        } else if (Array.isArray(data)) {
+          fetchedProducts = data
+        }
+
+        if (fetchedProducts.length > 0) {
+          const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
+          const mapped = fetchedProducts.map(p => {
+            const price = parseFloat(p.unitPrice || p.discountPrice || p.price || 0)
+
+            return {
+              id: p.vendorProductId || p.id,
+              vendorProductId: p.vendorProductId || p.id,
+              name: p.productName || p.name,
+              storeName: p.shopName || p.Vendor?.shopName || p.storeName || 'Nearzo Store',
+              category: p.shopCategoryName || p.categoryName || p.category || 'Groceries',
+              price: price,
+              unit: p.unit || 'unit',
+              discount: p.discount || 0,
+              image: p.productImage ? (p.productImage.startsWith('http') ? p.productImage : `${baseUrlForImage}${p.productImage}`) : (p.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'),
+              rating: p.rating || 4.8,
+              reviews: p.totalSold ? p.totalSold * 12 : (p.reviews || Math.floor(Math.random() * 200) + 50)
+            }
+          })
+          setProducts(mapped)
+        } else {
+          setProducts(productsData) // fallback to dummy data if empty
+        }
+      } catch (error) {
+        console.error('Error fetching best selling products:', error)
+        setProducts(productsData) // fallback to dummy data on error
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBestSelling()
+  }, [])
+
+  const items = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products
 
   return (
-    <section className="py-8 bg-white dark:bg-gray-900 px-4 sm:px-6">
+    <section className="pt-16 pb-8 sm:pt-20 sm:pb-10 bg-white dark:bg-gray-900 px-4 sm:px-6">
       <div className="container max-w-[90rem] mx-auto bg-[#EBE4FF] dark:bg-[#292245] rounded-[32px] px-4 sm:px-8 pb-10 pt-0 relative shadow-sm">
         
         {/* Top U-Shape Cutout for Title */}
@@ -48,11 +102,23 @@ const PopularProductsSection = ({ selectedCategory }) => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-5 mt-6 sm:mt-8">
-          {items.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-5 mt-6 sm:mt-8">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex flex-col animate-pulse bg-white p-3 rounded-[24px]">
+                <div className="w-full aspect-square rounded-[16px] bg-gray-200 dark:bg-gray-800 mb-3"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-5 mt-6 sm:mt-8">
+            {items.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        )}
         
         {/* Bottom Navigation Arrows (Static placeholder for design) */}
         <div className="flex items-center justify-center gap-4 mt-10">

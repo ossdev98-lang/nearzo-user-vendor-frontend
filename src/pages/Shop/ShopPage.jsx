@@ -4,21 +4,27 @@ import { motion } from 'framer-motion'
 import { Search, Star, MapPin, Clock, ChevronLeft, ChevronRight, Store } from 'lucide-react'
 import ShopProductsSection from '../../components/sections/ShopProductsSection'
 import { useApp } from '../../context/AppContext'
-import API from '../../services/api'
+import { vendorService } from '../../services/vendorService'
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-  const R = 6371; // Radius of the earth in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-  return R * c;
+// Distance calculation removed as it is no longer needed on ShopPage
+
+function formatTimeAMPM(timeString) {
+  if (!timeString) return '';
+  if (timeString.toLowerCase().includes('am') || timeString.toLowerCase().includes('pm')) {
+    return timeString;
+  }
+  const parts = timeString.split(':');
+  if (parts.length >= 2) {
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    if (isNaN(hours)) return timeString;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours}:${minutes} ${ampm}`;
+  }
+  return timeString;
 }
-
 const ShopPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -62,10 +68,10 @@ const ShopPage = () => {
     const fetchShopDetails = async () => {
       setLoading(true)
       try {
-        const response = await API.get(`/vendors/${id}/shop`)
-        if (response.data && response.data.success) {
-          setShopData(response.data.shop)
-          setCategoriesList(response.data.categories || [])
+        const data = await vendorService.getShopDetails(id)
+        if (data && data.success) {
+          setShopData(data.shop)
+          setCategoriesList(data.categories || [])
         }
       } catch (error) {
         console.error('Error fetching shop details:', error)
@@ -112,26 +118,30 @@ const ShopPage = () => {
 
   const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
   
-  const calculatedDist = calculateDistance(coordinates?.latitude, coordinates?.longitude, shopData.latitude, shopData.longitude);
-  const dist = calculatedDist !== null ? calculatedDist : shopData.distanceKm;
-
-  const calculatedTime = dist !== undefined && dist !== null
-    ? `${Math.round(dist * 5 + 10)}-${Math.round(dist * 5 + 15)} mins`
-    : '15-25 mins'
-
-  const distanceStr = dist !== undefined && dist !== null
-    ? `${dist.toFixed(2)} km away`
-    : (shopData.address || `${shopData.city || 'Indore'}, ${shopData.state || 'MP'}`)
-
   const shop = {
     id: shopData.id,
     name: shopData.shopName || 'Nearzo Store',
     image: shopData.banner 
       ? `${baseUrlForImage}${shopData.banner}`
       : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=400&fit=crop'),
-    rating: parseFloat(shopData.rating) > 0 ? parseFloat(shopData.rating).toFixed(1) : '4.5',
-    time: calculatedTime,
-    address: distanceStr
+    fullAddress: shopData.address || '',
+    city: shopData.city || '',
+    state: shopData.state || '',
+    pincode: shopData.pinCode || shopData.pincode || '',
+    openingTime: shopData.openingTime || '',
+    closingTime: shopData.closingTime || ''
+  }
+
+  const addressParts = [shop.fullAddress, shop.city, shop.state].filter(Boolean);
+  const addressString = addressParts.join(', ') + (shop.pincode ? ` - ${shop.pincode}` : '');
+
+  const formattedOpening = formatTimeAMPM(shop.openingTime);
+  const formattedClosing = formatTimeAMPM(shop.closingTime);
+  let timeString = '';
+  if (formattedOpening && formattedClosing) {
+    timeString = `${formattedOpening} - ${formattedClosing}`;
+  } else if (formattedOpening || formattedClosing) {
+    timeString = formattedOpening || formattedClosing;
   }
 
   const categories = ['Home', ...categoriesList.map(c => c.name)]
@@ -209,19 +219,23 @@ const ShopPage = () => {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
                 {shop.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs sm:text-sm text-gray-200 mb-3">
-                <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
-                  <Star className="w-4.5 h-4.5 text-yellow-400 fill-yellow-400" />
-                  <span className="font-bold text-white">{shop.rating}</span>
-                </div>
-                <div className="flex items-center gap-1.5 drop-shadow-md">
-                  <Clock className="w-4.5 h-4.5 text-white" />
-                  <span className="font-medium text-white">{shop.time}</span>
-                </div>
-                <div className="flex items-center gap-1.5 drop-shadow-md">
-                  <MapPin className="w-4.5 h-4.5 text-white" />
-                  <span className="font-medium text-white">{shop.address}</span>
-                </div>
+              <div className="flex flex-col gap-1.5 text-xs sm:text-sm text-gray-200 mb-3">
+                {addressString && (
+                  <div className="flex items-start gap-2 drop-shadow-md">
+                    <MapPin className="w-4.5 h-4.5 text-white shrink-0 mt-0.5" />
+                    <span className="font-medium text-white whitespace-pre-wrap max-w-md">
+                      {addressString}
+                    </span>
+                  </div>
+                )}
+                {timeString && (
+                  <div className="flex items-center gap-2 drop-shadow-md">
+                    <Clock className="w-4.5 h-4.5 text-white shrink-0" />
+                    <span className="font-medium text-white whitespace-nowrap">
+                      {timeString}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

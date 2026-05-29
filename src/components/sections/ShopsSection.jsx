@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { MapPin, Star, Clock } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import API from '../../services/api'
+import { vendorService } from '../../services/vendorService'
 
 export const dummyShops = [
   { id: 1, name: 'Fresh Mart', categories: ['Fruits', 'Vegetables'], image: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=400&h=300&fit=crop', rating: 4.8, time: '10-15 mins', address: '123 Main St' },
@@ -37,16 +38,11 @@ export default function ShopsSection({ selectedCategory }) {
     const fetchNearbyShops = async () => {
       setLoading(true)
       try {
-        const response = await API.get('/vendors/nearby', {
-          params: {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude
-          }
-        })
-        if (response.data && response.data.success && Array.isArray(response.data.vendors)) {
+        const data = await vendorService.getNearbyVendors(coordinates.latitude, coordinates.longitude)
+        if (data && data.success && Array.isArray(data.vendors)) {
           const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
           
-          const mappedShops = response.data.vendors.map(vendor => {
+          const mappedShops = data.vendors.map(vendor => {
             const categories = vendor.products && vendor.products.length > 0
               ? Array.from(new Set(vendor.products.map(p => p.categoryName).filter(Boolean)))
               : ['Groceries']
@@ -103,18 +99,30 @@ export default function ShopsSection({ selectedCategory }) {
 
   if (loading) {
     return (
-      <section className="py-8 bg-white dark:bg-gray-900">
-        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
-            <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2"></div>
-            <div className="h-4 w-96 bg-gray-100 dark:bg-gray-800 rounded animate-pulse"></div>
+      <section className="py-8 bg-white dark:bg-gray-900 px-4 sm:px-6">
+        <div className="container max-w-[90rem] mx-auto bg-[#EBE4FF] dark:bg-[#292245] rounded-[32px] px-4 sm:px-8 pb-10 pt-0 relative shadow-sm">
+          
+          <div className="flex justify-center relative w-full h-[95px] sm:h-[110px] mb-4 sm:mb-8">
+            <svg 
+              className="absolute top-0 w-full max-w-[500px] sm:max-w-[700px] h-full text-white dark:text-gray-900 filter drop-shadow-sm" 
+              viewBox="0 0 700 100" 
+              preserveAspectRatio="none" 
+              fill="currentColor"
+            >
+              <path d="M0,0 C40,0 60,100 120,100 L580,100 C640,100 660,0 700,0 Z" />
+            </svg>
+            <div className="relative z-10 pt-5 sm:pt-6 px-6 sm:px-10 text-center flex flex-col items-center">
+              <div className="h-8 w-64 bg-gray-200/50 dark:bg-gray-700/50 rounded-lg animate-pulse mb-2"></div>
+              <div className="h-4 w-48 bg-gray-200/50 dark:bg-gray-700/50 rounded animate-pulse"></div>
+            </div>
           </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 sm:gap-x-5 sm:gap-y-10">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="flex flex-col animate-pulse">
-                <div className="w-full aspect-[4/3] rounded-xl sm:rounded-2xl bg-gray-200 dark:bg-gray-800 mb-3"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2"></div>
+                <div className="w-full aspect-[4/3] rounded-xl sm:rounded-2xl bg-white/50 dark:bg-gray-800/50 mb-3"></div>
+                <div className="h-4 bg-white/50 dark:bg-gray-800/50 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-white/50 dark:bg-gray-800/50 rounded w-1/2"></div>
               </div>
             ))}
           </div>
@@ -124,60 +132,110 @@ export default function ShopsSection({ selectedCategory }) {
   }
 
   return (
-    <section className="py-8 bg-white dark:bg-gray-900">
-      <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 flex justify-between items-end">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {selectedCategory ? `${selectedCategory} Shops` : 'All Shops Near You'}
+    <section className="py-8 bg-white dark:bg-gray-900 px-4 sm:px-6">
+      <div className="container max-w-[90rem] mx-auto bg-[#acbdff] dark:bg-[#292245] rounded-[32px] px-4 sm:px-8 pb-10 pt-0 relative shadow-sm">
+        
+        <div className="flex justify-center relative w-full h-[95px] sm:h-[110px] mb-4 sm:mb-8">
+          <svg 
+            className="absolute top-0 w-full max-w-[500px] sm:max-w-[700px] h-full text-white dark:text-gray-900 filter drop-shadow-sm" 
+            viewBox="0 0 700 100" 
+            preserveAspectRatio="none" 
+            fill="currentColor"
+          >
+            <path d="M0,0 C40,0 60,100 120,100 L580,100 C640,100 660,0 700,0 Z" />
+          </svg>
+          
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="relative z-10 pt-5 sm:pt-6 px-6 sm:px-10 text-center flex flex-col items-center"
+          >
+            <h2 className="text-2xl sm:text-[2.2rem] font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2 tracking-tight">
+              {selectedCategory ? (
+                <>{selectedCategory} <span className="text-[#6C4CF1] dark:text-[#9A81F8]">Shops</span></>
+              ) : (
+                <>All Shops <span className="text-[#6C4CF1] dark:text-[#9A81F8]">Near You</span></>
+              )}
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+            <p className="text-[#6C4CF1] dark:text-[#9A81F8] font-semibold text-[11px] sm:text-sm">
               Explore the best stores delivering to your location
             </p>
-          </div>
+          </motion.div>
         </div>
 
         {filteredShops.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 sm:gap-x-5 sm:gap-y-10">
-            {filteredShops.map((shop) => (
-              <div
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 sm:gap-x-5 sm:gap-y-10 mt-6 sm:mt-8">
+            {filteredShops.map((shop, index) => (
+              <motion.div
                 key={shop.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.08 }}
+                whileHover={{ y: -6, scale: 1.02 }}
                 onClick={() => navigate(`/shop/${shop.id}`)}
-                className="group cursor-pointer flex flex-col"
+                className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm hover:shadow-xl transition-all duration-300 relative group cursor-pointer flex flex-col h-full border border-gray-100 dark:bg-gray-900 dark:border-gray-800"
               >
-                <div className="relative w-full aspect-[4/3] overflow-hidden rounded-xl sm:rounded-2xl shadow-sm mb-3 bg-gray-100 dark:bg-gray-800">
+                {/* Image Container */}
+                <div className="relative bg-[#F8F9FA] dark:bg-gray-800 rounded-[12px] sm:rounded-[16px] h-[90px] sm:h-[160px] w-full flex items-center justify-center overflow-hidden">
                   <img
                     src={shop.image}
                     alt={shop.name}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
+
+                {/* Shop Info */}
+                <div className="pt-4 pb-1 px-1 flex flex-col flex-grow">
+                  {/* Category */}
+                  {shop.shopCategory && (
+                    <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1">
+                      {shop.shopCategory}
+                    </p>
+                  )}
                   
-                  <div className="absolute top-2 right-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-1.5 py-0.5 rounded flex items-center gap-1 shadow-md">
-                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                    <span className="text-[10px] font-extrabold text-gray-900 dark:text-white">{shop.rating}</span>
+                  {/* Title */}
+                  <h3 className="text-[13px] sm:text-[15px] font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+                    {shop.name}
+                  </h3>
+
+                  {/* Rating */}
+                  <div className="flex items-center gap-1 mb-3">
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3.5 h-3.5 ${star <= Math.floor(shop.rating || 5)
+                            ? 'text-[#FFB800] fill-[#FFB800]'
+                            : 'text-gray-200 fill-gray-200'
+                            }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium ml-1">
+                      ({shop.rating || '5.0'})
+                    </span>
+                  </div>
+
+                  <div className="mt-auto">
+                    {/* Time and Distance */}
+                    <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
+                      <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#6C4CF1]" />
+                        <span>{shop.time}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#6C4CF1]" />
+                        <span className="truncate max-w-[80px] sm:max-w-[100px]">{shop.address}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="px-1 flex flex-col flex-grow">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors line-clamp-1 truncate pr-2">
-                      {shop.name}
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center flex-wrap gap-x-1.5 gap-y-1 mt-1 text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-gray-300">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-primary" />
-                      <span>{shop.time}</span>
-                    </div>
-                    <span className="text-gray-300 dark:text-gray-600">•</span>
-                    <div className="flex items-center gap-1 truncate max-w-[120px] sm:max-w-[100px]">
-                      <span className="truncate">{shop.address}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (

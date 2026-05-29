@@ -142,6 +142,21 @@ const App = () => {
               }
             />
             <Route
+              path="/profile/:tabId"
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ProfilePage />
+                  </motion.div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/checkout"
               element={
                 <ProtectedRoute>

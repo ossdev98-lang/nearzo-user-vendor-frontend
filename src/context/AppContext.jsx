@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import API from '../services/api'
+import { cartService } from '../services/cartService'
 import { toast } from 'react-hot-toast'
 
 const AppContext = createContext()
@@ -46,9 +46,9 @@ export const AppProvider = ({ children }) => {
   // Helper to fetch cart from API
   const fetchCart = useCallback(async () => {
     try {
-      const res = await API.get('/cart')
-      if (res.data && res.data.success) {
-        const backendCart = res.data.items || res.data.cart || res.data.cartItems || res.data.results || res.data.data || []
+      const data = await cartService.getCart()
+      if (data && data.success) {
+        const backendCart = data.items || data.cart || data.cartItems || data.results || data.data || []
         const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
 
         const formatted = backendCart.map(item => {
@@ -90,7 +90,7 @@ export const AppProvider = ({ children }) => {
         if (Array.isArray(items) && items.length > 0) {
           for (const item of items) {
             try {
-              await API.post('/cart', {
+              await cartService.addToCart({
                 vendorProductId: item.vendorProductId || item.id,
                 variantId: item.variantId || 'base',
                 quantity: item.quantity || 1
@@ -172,7 +172,7 @@ export const AppProvider = ({ children }) => {
       const isTemporaryId = typeof cartId === 'number' && cartId > 1000000000000
       if (!isTemporaryId) {
         try {
-          await API.delete(`/cart/${cartId}`)
+          await cartService.removeCartItem(cartId)
         } catch (err) {
           console.error('Failed to delete item from backend cart:', err)
         }
@@ -200,7 +200,7 @@ export const AppProvider = ({ children }) => {
       const isTemporaryId = typeof cartId === 'number' && cartId > 1000000000000
       if (!isTemporaryId) {
         try {
-          await API.put(`/cart/${cartId}`, { quantity })
+          await cartService.updateCartItem(cartId, quantity)
           await fetchCart()
           return
         } catch (err) {
@@ -229,7 +229,7 @@ export const AppProvider = ({ children }) => {
     const isLoggedIn = !!localStorage.getItem('user')
     if (isLoggedIn) {
       try {
-        await API.delete('/cart')
+        await cartService.clearCart()
       } catch (err) {
         console.error('Failed to clear backend cart:', err)
       }

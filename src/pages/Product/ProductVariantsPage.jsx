@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ShoppingCart, Star, Heart, ArrowLeft, Store, BadgePercent } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import API from '../../services/api'
+import { vendorService } from '../../services/vendorService'
 import { productsData } from '../../components/sections/PopularProductsSection'
 
 const ProductVariantsPage = () => {
@@ -21,9 +21,9 @@ const ProductVariantsPage = () => {
     const fetchProductDetails = async () => {
       setLoading(true)
       try {
-        const response = await API.get(`/products/${id}`)
-        if (response.data && response.data.success) {
-          const prod = response.data.product
+        const data = await vendorService.getOriginalProductDetails(id)
+        if (data && data.success) {
+          const prod = data.product
           const discount = prod.discountPrice && prod.discountPrice < prod.price
             ? Math.round(((prod.price - prod.discountPrice) / prod.price) * 100)
             : 0

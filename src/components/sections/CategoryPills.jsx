@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import groceryGif from '../../assets/gifs/Grocery shopping bag pickup and delivery.gif'
-import API from '../../services/api'
+import { categoryService } from '../../services/categoryService'
 
 // Fallback images for dynamic category names if image is null
 const categoryImageFallbacks = {
@@ -19,11 +19,11 @@ export default function CategoryPills({ selected, onSelect }) {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await API.get('/shop-categories')
-        if (response.data && response.data.success && Array.isArray(response.data.shopCategories)) {
+        const data = await categoryService.getShopCategories()
+        if (data && data.success && Array.isArray(data.shopCategories)) {
           const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
           
-          const dynamicCategories = response.data.shopCategories.map(c => {
+          const dynamicCategories = data.shopCategories.map(c => {
             const finalImage = c.image
               ? `${baseUrlForImage}${c.image}`
               : (categoryImageFallbacks[c.shopCategoryName] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop')

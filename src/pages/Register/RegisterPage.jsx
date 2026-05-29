@@ -58,7 +58,11 @@ const RegisterPage = () => {
       },
       (error) => {
         setLocationLoading(false)
-        toast.error('Unable to retrieve your location. Please allow location access.')
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error('Location access denied.', { duration: 5000 })
+        } else {
+          toast.error('Unable to retrieve your location. Please try again.')
+        }
       }
     )
   }
@@ -114,8 +118,9 @@ const RegisterPage = () => {
     }
 
     if (!formData.latitude || !formData.longitude) {
-      toast.error('Location is required. Please wait for it to be fetched.')
-      return false
+      toast.error('Location is required to register. Please allow access.')
+      getLocation()
+      newErrors.location = 'Location required'
     }
 
     setErrors(newErrors)
@@ -174,16 +179,17 @@ const RegisterPage = () => {
       </div>
 
       {/* Right Column - Form */}
-      <div 
+      <div
         className="p-6 sm:p-12 w-full md:w-1/2 flex flex-col bg-white dark:bg-gray-900 overflow-y-auto no-scrollbar h-auto sm:h-[600px] relative"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           .no-scrollbar::-webkit-scrollbar {
             display: none;
           }
         `}} />
-        
+
         {/* Back to Home Button */}
         <div className="absolute top-6 left-6 md:top-8 md:left-8 z-10">
           <Link to="/" className="flex items-center text-sm font-medium text-gray-500 hover:text-purple-600 transition-colors bg-white dark:bg-gray-900">
@@ -267,55 +273,12 @@ const RegisterPage = () => {
             icon={<Lock className="w-4 h-4 text-gray-400" />}
           />
 
-          {/* Latitude & Longitude Coordinates (Always Visible & Disabled) */}
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Latitude *" 
-              name="latitude" 
-              value={formData.latitude} 
-              disabled={true}
-              className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed font-semibold text-sm"
-              placeholder={locationLoading ? "Detecting..." : "Auto-filled"} 
-              icon={<MapPin className="w-4 h-4 text-gray-400" />}
-            />
-            <Input 
-              label="Longitude *" 
-              name="longitude" 
-              value={formData.longitude} 
-              disabled={true}
-              className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed font-semibold text-sm"
-              placeholder={locationLoading ? "Detecting..." : "Auto-filled"} 
-              icon={<MapPin className="w-4 h-4 text-gray-400" />}
-            />
-          </div>
-
-          {/* Location status / Fetch button */}
+          {/* Location status */}
           <div className="pt-1">
-            {locationLoading ? (
+            {locationLoading && (
               <div className="flex items-center gap-2 justify-center py-2 text-purple-600 dark:text-purple-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span className="text-xs font-bold">Auto-fetching coordinates...</span>
-              </div>
-            ) : (!formData.latitude || !formData.longitude) ? (
-              <div className="text-center bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-2xl p-3">
-                <p className="text-xs text-red-500 dark:text-red-400 font-bold mb-2">Location access required to sign up.</p>
-                <button 
-                  type="button" 
-                  onClick={getLocation} 
-                  className="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md"
-                >
-                  Allow & Detect Location
-                </button>
-              </div>
-            ) : (
-              <div className="text-center">
-                <button 
-                  type="button" 
-                  onClick={getLocation} 
-                  className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
-                >
-                  Detect Location Coordinates Again
-                </button>
               </div>
             )}
           </div>

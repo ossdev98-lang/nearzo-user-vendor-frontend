@@ -6,7 +6,7 @@ import { useApp } from '../../context/AppContext'
 import { productsData } from '../../components/sections/PopularProductsSection'
 import { dummyShops } from '../../components/sections/ShopsSection'
 import ProductCard from '../../components/cards/ProductCard'
-import API from '../../services/api'
+import { vendorService } from '../../services/vendorService'
 import { toast } from 'react-hot-toast'
 
 const ProductPage = () => {
@@ -35,9 +35,9 @@ const ProductPage = () => {
     const fetchProductDetails = async () => {
       setLoading(true)
       try {
-        const response = await API.get(`/vendors/products/${id}`)
-        if (response.data && response.data.success) {
-          const prod = response.data.product
+        const data = await vendorService.getProductDetails(id)
+        if (data && data.success) {
+          const prod = data.product
           const innerProduct = prod.Product || {}
 
           const basePrice = Number(prod.discountPrice || innerProduct.price || prod.price || 0)
@@ -98,16 +98,16 @@ const ProductPage = () => {
             setShop(formattedShop)
           } else if (prod.vendorId) {
             try {
-              const shopRes = await API.get(`/vendors/${prod.vendorId}/shop`)
-              if (shopRes.data && shopRes.data.success) {
-                setShop(shopRes.data.shop)
+              const shopData = await vendorService.getShopDetails(prod.vendorId)
+              if (shopData && shopData.success) {
+                setShop(shopData.shop)
               }
             } catch { }
           }
 
           // Parse related products
-          if (Array.isArray(response.data.relatedShopProduct) && response.data.relatedShopProduct.length > 0) {
-            const mappedRelated = response.data.relatedShopProduct.map(relatedProd => {
+          if (Array.isArray(data.relatedShopProduct) && data.relatedShopProduct.length > 0) {
+            const mappedRelated = data.relatedShopProduct.map(relatedProd => {
               const innerProd = relatedProd.Product || {}
               const basePrice = Number(relatedProd.discountPrice || innerProd.price || relatedProd.price || 0)
               const originalPrice = Number(innerProd.price || relatedProd.price || 0)

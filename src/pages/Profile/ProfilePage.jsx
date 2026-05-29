@@ -2,14 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
 import { authService } from '../../services/authService'
-import { useNavigate } from 'react-router-dom'
+import { userService } from '../../services/userService'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   User, Mail, Phone, MapPin, Edit3, Camera,
   ShoppingBag, Heart, CreditCard, Settings, LogOut, ChevronRight,
-  Package, CheckCircle, Bell, Shield, X, Navigation, Lock
+  Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
+import API from '../../services/api'
 
 const getAvatarUrl = (avatar) => {
   if (!avatar) return dummyUserImage;
@@ -23,23 +25,62 @@ const getAvatarUrl = (avatar) => {
 const ProfilePage = () => {
   const { user, setUser } = useApp()
   const navigate = useNavigate()
+  const { tabId } = useParams()
+  const tabQuery = tabId || 'personal'
+  
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('personal')
+  const [activeTab, setActiveTab] = useState(tabQuery)
   const [pushEnabled, setPushEnabled] = useState(true)
+
+  useEffect(() => {
+    if (tabQuery !== activeTab) {
+      setActiveTab(tabQuery)
+    }
+  }, [tabQuery])
+
+  const handleTabChange = (newTabId) => {
+    setActiveTab(newTabId)
+    window.history.pushState(null, '', `/profile/${newTabId}`)
+  }
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const pathParts = window.location.pathname.split('/')
+      const currentTab = pathParts.length > 2 ? pathParts[2] : 'personal'
+      setActiveTab(currentTab)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   // Address Modal States
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [newAddress, setNewAddress] = useState('')
   const [addressLabel, setAddressLabel] = useState('Home')
   const [isLocating, setIsLocating] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [addressDetails, setAddressDetails] = useState({
+    city: '', state: '', pincode: '', latitude: null, longitude: null
+  })
+  const [addresses, setAddresses] = useState([])
+  const [editingAddressId, setEditingAddressId] = useState(null)
+  
+  // Address Delete States
+  const [addressToDelete, setAddressToDelete] = useState(null)
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false)
 
   // Profile Edit States
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [editProfileForm, setEditProfileForm] = useState({ name: '', phone: '' })
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const avatarInputRef = useRef(null)
+
+  // Change Password States
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -58,6 +99,13 @@ const ProfilePage = () => {
           const data = await response.json()
           if (data && data.display_name) {
             setNewAddress(data.display_name)
+            setAddressDetails({
+              city: data.address?.city || data.address?.town || data.address?.county || '',
+              state: data.address?.state || '',
+              pincode: data.address?.postcode || '',
+              latitude: latitude,
+              longitude: longitude
+            })
             toast.success('Location fetched successfully!', { id: toastId })
           }
         } catch (err) {
@@ -73,16 +121,104 @@ const ProfilePage = () => {
     )
   }
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!newAddress.trim()) {
       toast.error('Please enter an address')
       return
     }
-    // Update local state to reflect the new address
-    setProfileData({ ...profileData, address: newAddress, addressLabel: addressLabel })
-    toast.success('Address saved successfully!')
-    setShowAddressModal(false)
-    setNewAddress('')
+
+    setIsSavingAddress(true)
+    const toastId = toast.loading('Saving address...')
+
+    try {
+      let type = 'home'
+      if (addressLabel === 'Work') type = 'office'
+      else if (addressLabel === 'Other') type = 'other'
+
+      const payload = {
+        address: newAddress,
+        city: addressDetails.city || 'Indore',
+        state: addressDetails.state || 'MP',
+        pincode: addressDetails.pincode || '452005',
+        latitude: addressDetails.latitude || 22.7004,
+        longitude: addressDetails.longitude || 75.8358,
+        addressType: type
+      }
+
+      if (editingAddressId) {
+        await userService.updateAddress(editingAddressId, payload)
+      } else {
+        await userService.addAddress(payload)
+      }
+      
+      // Refetch addresses
+      try {
+        const data = await userService.getAddresses()
+        if (data && data.addresses) setAddresses(data.addresses)
+        else if (Array.isArray(data)) setAddresses(data)
+      } catch (err) {
+        console.error('Failed to refetch addresses:', err)
+      }
+
+      toast.success(editingAddressId ? 'Address updated successfully!' : 'Address saved successfully!', { id: toastId })
+      setShowAddressModal(false)
+      setNewAddress('')
+      setAddressDetails({ city: '', state: '', pincode: '', latitude: null, longitude: null })
+      setEditingAddressId(null)
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Failed to save address', { id: toastId })
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
+
+  const confirmDeleteAddress = async () => {
+    if (!addressToDelete) return
+    
+    setIsDeletingAddress(true)
+    const toastId = toast.loading('Deleting address...')
+    try {
+      await userService.deleteAddress(addressToDelete)
+      
+      // Refetch addresses
+      const data = await userService.getAddresses()
+      if (data && data.addresses) setAddresses(data.addresses)
+      else if (Array.isArray(data)) setAddresses(data)
+      else setAddresses([])
+
+      toast.success('Address deleted successfully!', { id: toastId })
+      setAddressToDelete(null)
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Failed to delete address', { id: toastId })
+    } finally {
+      setIsDeletingAddress(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Please fill all password fields')
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
+    setIsChangingPassword(true)
+    const toastId = toast.loading('Changing password...')
+    try {
+      await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword)
+      toast.success('Password changed successfully!', { id: toastId })
+      setShowPasswordModal(false)
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      toast.error(error.message || 'Failed to change password', { id: toastId })
+    } finally {
+      setIsChangingPassword(false)
+    }
   }
 
   useEffect(() => {
@@ -102,7 +238,22 @@ const ProfilePage = () => {
         setLoading(false)
       }
     }
+    
+    const fetchAddresses = async () => {
+      try {
+        const data = await userService.getAddresses()
+        if (data && data.addresses) {
+          setAddresses(data.addresses)
+        } else if (Array.isArray(data)) {
+          setAddresses(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch addresses:', error)
+      }
+    }
+
     fetchProfile()
+    fetchAddresses()
   }, [])
 
   const handleLogout = () => {
@@ -257,7 +408,7 @@ const ProfilePage = () => {
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => handleTabChange(tab.id)}
                       className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl mb-1 transition-all duration-300 ${isActive
                           ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-purple-600 dark:hover:text-purple-400'
@@ -405,7 +556,13 @@ const ProfilePage = () => {
                         <p className="text-sm text-gray-500 mt-1">Manage your delivery addresses for quick checkout.</p>
                       </div>
                       <button
-                        onClick={() => setShowAddressModal(true)}
+                        onClick={() => {
+                          setEditingAddressId(null)
+                          setNewAddress('')
+                          setAddressLabel('Home')
+                          setAddressDetails({ city: '', state: '', pincode: '', latitude: null, longitude: null })
+                          setShowAddressModal(true)
+                        }}
                         className="flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition-all shrink-0"
                       >
                         <MapPin className="w-4 h-4" />
@@ -413,31 +570,74 @@ const ProfilePage = () => {
                       </button>
                     </div>
 
-                    <div className="p-6 sm:p-8">
-                      <div className="bg-gradient-to-r from-gray-50 to-white dark:from-white/5 dark:to-transparent rounded-2xl p-5 border border-purple-600/30 flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-400">
-                          <MapPin className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">{profileData.addressLabel || 'Home'}</span>
-                              <span className="px-2 py-0.5 rounded-full bg-purple-600/10 text-purple-600 text-[10px] font-bold uppercase">Default</span>
+                    <div className="p-6 sm:p-8 space-y-4">
+                      {addresses.length === 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          No address added yet. Please click "Add New Address" to set up a delivery location.
+                        </p>
+                      ) : (
+                        addresses.map((addr) => (
+                          <div key={addr.id} className="bg-gradient-to-r from-gray-50 to-white dark:from-white/5 dark:to-transparent rounded-2xl p-5 border border-purple-600/30 flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-400">
+                              <MapPin className="w-5 h-5" />
                             </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={() => toast('Edit address coming soon!', { icon: '✍️' })}
-                                className="text-sm font-bold text-purple-600 hover:text-purple-700"
-                              >
-                                Edit
-                              </button>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900 dark:text-white capitalize">
+                                    {addr.addressType === 'office' ? 'Work' : addr.addressType || 'Home'}
+                                  </span>
+                                  {addr.isDefault && (
+                                    <span className="px-2 py-0.5 rounded-full bg-purple-600/10 text-purple-600 text-[10px] font-bold uppercase">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => {
+                                      localStorage.setItem('selectedAddressId', addr.id)
+                                      toast.success('Address selected for delivery')
+                                      navigate('/checkout')
+                                    }}
+                                    className="text-sm font-bold text-green-600 hover:text-green-700"
+                                  >
+                                    Select
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingAddressId(addr.id)
+                                      setNewAddress(addr.address || '')
+                                      setAddressLabel(addr.addressType === 'office' ? 'Work' : 'Home')
+                                      setAddressDetails({
+                                        city: addr.city || '',
+                                        state: addr.state || '',
+                                        pincode: addr.pincode || '',
+                                        latitude: addr.latitude || null,
+                                        longitude: addr.longitude || null
+                                      })
+                                      setShowAddressModal(true)
+                                    }}
+                                    className="text-sm font-bold text-purple-600 hover:text-purple-700"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => setAddressToDelete(addr.id)}
+                                    className="text-sm font-bold text-red-500 hover:text-red-600 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                    title="Delete Address"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-2">
+                                {addr.address}, {addr.city}, {addr.state} - {addr.pincode}
+                              </p>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-2">
-                            {profileData.address || 'No address added yet. Please click "Add New Address" to set up a default delivery location so we can deliver your fresh groceries.'}
-                          </p>
-                        </div>
-                      </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -532,7 +732,7 @@ const ProfilePage = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
+                      {/* <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-500 shadow-sm">
                             <Shield className="w-5 h-5" />
@@ -548,7 +748,7 @@ const ProfilePage = () => {
                         >
                           Enable
                         </button>
-                      </div>
+                      </div> */}
 
                       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                         <div className="flex items-center gap-4">
@@ -561,7 +761,7 @@ const ProfilePage = () => {
                           </div>
                         </div>
                         <button
-                          onClick={() => toast('Change Password feature coming soon!', { icon: '🔑' })}
+                          onClick={() => setShowPasswordModal(true)}
                           className="text-sm font-bold text-purple-600 hover:underline"
                         >
                           Change
@@ -581,24 +781,29 @@ const ProfilePage = () => {
       {/* Add Address Modal */}
       <AnimatePresence>
         {showAddressModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 dark:border-white/10"
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg border border-gray-100 dark:border-white/10 flex flex-col max-h-[90vh]"
             >
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add New Address</h3>
+              <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center shrink-0">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  {editingAddressId ? 'Edit Address' : 'Add New Address'}
+                </h3>
                 <button
-                  onClick={() => setShowAddressModal(false)}
+                  onClick={() => {
+                    setShowAddressModal(false)
+                    setEditingAddressId(null)
+                  }}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
                 <button
                   onClick={handleGetCurrentLocation}
                   disabled={isLocating}
@@ -622,10 +827,44 @@ const ProfilePage = () => {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">City</label>
+                    <input
+                      type="text"
+                      value={addressDetails.city}
+                      onChange={(e) => setAddressDetails({ ...addressDetails, city: e.target.value })}
+                      placeholder="e.g. Indore"
+                      className="w-full p-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">State</label>
+                    <input
+                      type="text"
+                      value={addressDetails.state}
+                      onChange={(e) => setAddressDetails({ ...addressDetails, state: e.target.value })}
+                      placeholder="e.g. MP"
+                      className="w-full p-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Pincode</label>
+                  <input
+                    type="text"
+                    value={addressDetails.pincode}
+                    onChange={(e) => setAddressDetails({ ...addressDetails, pincode: e.target.value })}
+                    placeholder="e.g. 452005"
+                    className="w-full p-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Save As</label>
                   <div className="flex gap-3">
-                    {['Home', 'Work', 'Other'].map((label) => (
+                    {['Home', 'Work'].map((label) => (
                       <button
                         key={label}
                         onClick={() => setAddressLabel(label)}
@@ -642,9 +881,125 @@ const ProfilePage = () => {
 
                 <button
                   onClick={handleSaveAddress}
-                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg shadow-purple-600/20 mt-4"
+                  disabled={isSavingAddress}
+                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg shadow-purple-600/20 mt-4 disabled:opacity-70 flex justify-center items-center"
                 >
-                  Save Address
+                  {isSavingAddress ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    editingAddressId ? 'Update Address' : 'Save Address'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {addressToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 dark:border-white/10"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Delete Address?</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                  Are you sure you want to delete this address? This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setAddressToDelete(null)}
+                    disabled={isDeletingAddress}
+                    className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-800 dark:text-white rounded-xl font-bold transition-colors disabled:opacity-70"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteAddress}
+                    disabled={isDeletingAddress}
+                    className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-colors disabled:opacity-70 flex justify-center items-center"
+                  >
+                    {isDeletingAddress ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      'Delete'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Change Password Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-white/10 flex flex-col max-h-[90vh]"
+            >
+              <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center shrink-0">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Change Password</h3>
+                <button
+                  onClick={() => setShowPasswordModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                    placeholder="Enter new password"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <button
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                  className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg shadow-purple-600/20 mt-2 disabled:opacity-70 flex justify-center items-center"
+                >
+                  {isChangingPassword ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    'Update Password'
+                  )}
                 </button>
               </div>
             </motion.div>

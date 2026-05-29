@@ -1,13 +1,39 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ChevronLeft, MapPin, CreditCard, Banknote, ShieldCheck, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { userService } from '../../services/userService'
 
 const CheckoutPage = () => {
   const { cart, cartTotal, clearCart, user, setIsCartOpen } = useApp()
   const navigate = useNavigate()
   const [paymentMethod, setPaymentMethod] = useState('cod')
+  const [addresses, setAddresses] = useState([])
+  const [loadingAddress, setLoadingAddress] = useState(true)
+
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const data = await userService.getAddresses()
+        if (data && data.addresses) {
+          setAddresses(data.addresses)
+        } else if (Array.isArray(data)) {
+          setAddresses(data)
+        }
+      } catch (error) {
+        console.error('Error fetching addresses:', error)
+      } finally {
+        setLoadingAddress(false)
+      }
+    }
+    fetchAddresses()
+  }, [])
+
+  const selectedAddressId = localStorage.getItem('selectedAddressId')
+  const defaultAddress = selectedAddressId 
+    ? addresses.find(a => String(a.id) === String(selectedAddressId)) || addresses.find(a => a.isDefault) || addresses[0]
+    : addresses.find(a => a.isDefault) || addresses[0]
 
   const handlePlaceOrder = () => {
     if (cart.length === 0) {
@@ -63,16 +89,33 @@ const CheckoutPage = () => {
                 </button>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-white/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="font-bold text-gray-900 dark:text-white text-base">{user?.name || 'Guest User'}</span>
-                  <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Home</span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  {user?.address || '123 Main Street, Near City Center, Indore, Madhya Pradesh, 452001'}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-                  Phone: {user?.phone || '+91 9876543210'}
-                </p>
+                {loadingAddress ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                ) : defaultAddress ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-bold text-gray-900 dark:text-white text-base">{user?.name || 'Guest User'}</span>
+                      <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                        {defaultAddress.addressType === 'office' ? 'Work' : defaultAddress.addressType || 'Home'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                      {defaultAddress.address}, {defaultAddress.city}, {defaultAddress.state} - {defaultAddress.pincode}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
+                      Phone: {user?.phone || '+91 9876543210'}
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500 mb-2">No delivery address found</p>
+                    <button onClick={() => navigate('/profile/addresses')} className="text-sm font-bold text-purple-600 hover:underline">Add New Address</button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -97,7 +140,7 @@ const CheckoutPage = () => {
                   </div>
                 </label>
 
-                <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-purple-200'}`}>
+                {/* <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-900/10' : 'border-gray-200 dark:border-gray-800 hover:border-purple-200'}`}>
                   <div className="flex items-center gap-4">
                     <CreditCard className={`w-6 h-6 ${paymentMethod === 'online' ? 'text-purple-600' : 'text-gray-400'}`} />
                     <div>
@@ -108,7 +151,7 @@ const CheckoutPage = () => {
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'online' ? 'border-purple-600' : 'border-gray-300 dark:border-gray-600'}`}>
                     {paymentMethod === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
                   </div>
-                </label>
+                </label> */}
               </div>
             </div>
 

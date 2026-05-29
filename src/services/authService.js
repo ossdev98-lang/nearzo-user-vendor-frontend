@@ -19,6 +19,22 @@ export const authService = {
     }
   },
 
+  googleLogin: async (data) => {
+    try {
+      const response = await API.post('/auth/google/login', data)
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+        if (response.data.user) {
+          localStorage.setItem('user', JSON.stringify(response.data.user))
+          localStorage.setItem('role', response.data.user.role || 'user')
+        }
+      }
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
   register: async (userData) => {
     try {
       const response = await API.post('/auth/register', userData)
@@ -108,6 +124,15 @@ export const authService = {
   resetPassword: async (email, newPassword) => {
     try {
       const response = await API.post('/auth/reset-password', { email, newPassword })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
+  changePassword: async (currentPassword, newPassword, confirmPassword) => {
+    try {
+      const response = await API.post('/auth/change-password', { currentPassword, newPassword, confirmPassword })
       return response.data
     } catch (error) {
       throw error.response?.data || error
