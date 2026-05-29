@@ -382,6 +382,8 @@ const ProductPage = () => {
                   <div className="flex flex-wrap gap-3">
                     {variants.map((v, idx) => {
                       const isUnavailable = v.isAvailable === false || v.isAvailable === 'false' || v.isAvailable === 0 || v.isAvailable === '0'
+                      if (isUnavailable) return null
+                      
                       const hasDiscount = Number(v.originalPrice || 0) > Number(v.price || 0)
                       return (
                         <button
