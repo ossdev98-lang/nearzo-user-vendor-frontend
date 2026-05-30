@@ -5,6 +5,7 @@ import { Search, Star, MapPin, Clock, ChevronLeft, ChevronRight, Store } from 'l
 import ShopProductsSection from '../../components/sections/ShopProductsSection'
 import { useApp } from '../../context/AppContext'
 import { vendorService } from '../../services/vendorService'
+import dummyBanner from '../../assets/images/dummy-banner.jpg'
 
 // Distance calculation removed as it is no longer needed on ShopPage
 
@@ -53,7 +54,7 @@ const ShopPage = () => {
       window.removeEventListener('resize', checkScrollable)
     }
   }, [categoriesList, loading])
-  
+
   const scroll = (direction) => {
     if (scrollRef.current) {
       if (direction === 'left') {
@@ -70,6 +71,7 @@ const ShopPage = () => {
       try {
         const data = await vendorService.getShopDetails(id)
         if (data && data.success) {
+          console.log('--- SHOP DATA ---', data.shop)
           setShopData(data.shop)
           setCategoriesList(data.categories || [])
         }
@@ -98,7 +100,7 @@ const ShopPage = () => {
 
   if (!shopData) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20 flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-white dark:bg-gray-950 pt-20 flex flex-col items-center justify-center px-4">
         <div className="w-16 h-16 bg-red-50 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4">
           <Store className="w-8 h-8 text-red-500" />
         </div>
@@ -117,19 +119,27 @@ const ShopPage = () => {
   }
 
   const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
-  
+
+  const formatImgUrl = (path) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    const normalizedPath = path.replace(/\\/g, '/')
+    const cleanedPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`
+    return `${baseUrlForImage}${cleanedPath}`
+  }
+
   const shop = {
     id: shopData.id,
     name: shopData.shopName || 'Nearzo Store',
-    image: shopData.banner 
-      ? `${baseUrlForImage}${shopData.banner}`
-      : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=400&fit=crop'),
+    banner: formatImgUrl(shopData.banner),
+    logo: formatImgUrl(shopData.logo),
     fullAddress: shopData.address || '',
     city: shopData.city || '',
     state: shopData.state || '',
     pincode: shopData.pinCode || shopData.pincode || '',
     openingTime: shopData.openingTime || '',
-    closingTime: shopData.closingTime || ''
+    closingTime: shopData.closingTime || '',
+    workMode: shopData.workMode === true
   }
 
   const addressParts = [shop.fullAddress, shop.city, shop.state].filter(Boolean);
@@ -149,7 +159,7 @@ const ShopPage = () => {
   // Helper to extract mapped products
   const getProducts = () => {
     let list = []
-    const targetCategories = selectedCategory 
+    const targetCategories = selectedCategory
       ? categoriesList.filter(c => c.name === selectedCategory)
       : categoriesList
 
@@ -162,9 +172,16 @@ const ShopPage = () => {
                 ? Math.round(((prod.price - prod.discountPrice) / prod.price) * 100)
                 : 0
 
-              const prodImage = prod.variants && prod.variants.length > 0 && prod.variants[0].image
-                ? `${baseUrlForImage}${prod.variants[0].image}`
-                : (shopData.logo ? `${baseUrlForImage}${shopData.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop')
+              const getProdImage = () => {
+                const inner = prod.Product || {}
+                const imgPath = prod.primaryImage || prod.productImage || prod.image || inner.primaryImage || inner.productImage || inner.image
+                if (imgPath) return formatImgUrl(imgPath)
+                if (prod.variants && prod.variants.length > 0 && prod.variants[0].image) {
+                  return formatImgUrl(prod.variants[0].image)
+                }
+                return ''
+              }
+              const prodImage = getProdImage()
 
               list.push({
                 id: prod.id,
@@ -197,41 +214,64 @@ const ShopPage = () => {
   const products = getProducts()
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20">
+    <div className="min-h-screen bg-white dark:bg-gray-950 pt-20">
       {/* Banner Area */}
-      <div className="relative w-full h-[180px] sm:h-[240px] bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+      <div className="relative w-full h-[140px] sm:h-[200px] bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <img
-          src={shop.image}
+          src={shop.banner || dummyBanner}
           alt={shop.name}
           className="w-full h-full object-cover opacity-60"
+          crossOrigin="anonymous"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = dummyBanner;
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
-        <div className="absolute bottom-0 left-0 w-full z-10">
-          <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8 flex flex-col md:flex-row md:items-end justify-start gap-6">
+        <div className="absolute inset-0 w-full z-10 flex items-center">
+          <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 flex flex-row items-center justify-start gap-4 sm:gap-6">
             {/* Store Avatar Thumbnail */}
-            <div className="hidden md:block shrink-0">
-               <div className="w-28 h-28 sm:w-32 sm:h-32 bg-white/10 backdrop-blur-md rounded-2xl p-1.5 shadow-2xl border border-white/20">
-                 <img src={shop.image} alt={shop.name} className="w-full h-full object-cover rounded-xl" />
-               </div>
+            <div className="shrink-0">
+              <div className="w-16 h-16 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-white/10 backdrop-blur-md rounded-2xl p-1 md:p-1.5 shadow-2xl border border-white/20">
+                <img 
+                  src={shop.logo || shop.banner || dummyBanner} 
+                  alt={shop.name} 
+                  className="w-full h-full object-cover rounded-xl" 
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = dummyBanner;
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="pb-2">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-lg">
-                {shop.name}
-              </h1>
-              <div className="flex flex-col gap-1.5 text-xs sm:text-sm text-gray-200 mb-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1 sm:mb-1.5">
+                <h1 className="text-lg sm:text-3xl lg:text-4xl font-bold text-white tracking-tight drop-shadow-lg truncate max-w-[150px] sm:max-w-none">
+                  {shop.name}
+                </h1>
+                <span className={`flex items-center gap-1.5 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-xs font-bold uppercase tracking-wider text-white shadow-lg ${shop.workMode ? 'bg-emerald-500 shadow-emerald-500/40' : 'bg-rose-500 shadow-rose-500/40'}`}>
+                  {shop.workMode ? (
+                    <><span className="w-1 h-1 rounded-full bg-white animate-pulse"></span> Open</>
+                  ) : (
+                    <><span className="w-1 h-1 rounded-full bg-white"></span> Closed</>
+                  )}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 text-[10px] sm:text-sm text-gray-200">
                 {addressString && (
-                  <div className="flex items-start gap-2 drop-shadow-md">
-                    <MapPin className="w-4.5 h-4.5 text-white shrink-0 mt-0.5" />
-                    <span className="font-medium text-white whitespace-pre-wrap max-w-md">
+                  <div className="flex items-center gap-1.5 drop-shadow-md">
+                    <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="font-semibold text-gray-100 truncate max-w-[180px] sm:max-w-none">
                       {addressString}
                     </span>
                   </div>
                 )}
                 {timeString && (
-                  <div className="flex items-center gap-2 drop-shadow-md">
-                    <Clock className="w-4.5 h-4.5 text-white shrink-0" />
-                    <span className="font-medium text-white whitespace-nowrap">
+                  <div className="flex items-center gap-1.5 drop-shadow-md">
+                    <Clock className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="font-semibold text-gray-100 whitespace-nowrap">
                       {timeString}
                     </span>
                   </div>
@@ -243,20 +283,14 @@ const ShopPage = () => {
       </div>
 
       {/* Sub Navigation (like Apple) */}
-      <div className="sticky top-16 z-40 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+      <div className="sticky top-20 z-40 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
+          <div className="flex items-center justify-between py-3.5">
 
-            {/* Left side nav */}
-            <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0 pr-4">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white shrink-0 mr-2">
-                {shop.name}
-              </span>
-
-              {/* Slider Section */}
-              <div className="relative flex-1 flex items-center min-w-0 ml-2">
+            {/* Slider Section */}
+            <div className="relative flex-1 flex items-center min-w-0">
                 {isScrollable && (
-                  <button 
+                  <button
                     onClick={() => scroll('left')}
                     className="hidden sm:flex absolute left-0 z-10 p-1 bg-gradient-to-r from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
                   >
@@ -264,7 +298,7 @@ const ShopPage = () => {
                   </button>
                 )}
 
-                <div 
+                <div
                   ref={scrollRef}
                   className="flex items-center gap-4 sm:gap-8 text-xs sm:text-sm font-medium overflow-x-auto no-scrollbar scroll-smooth sm:px-8 w-full"
                 >
@@ -273,8 +307,8 @@ const ShopPage = () => {
                       key={idx}
                       onClick={() => setSelectedCategory(cat === 'Home' ? null : cat)}
                       className={`whitespace-nowrap pb-1 transition-colors ${(cat === 'Home' && !selectedCategory) || (cat === selectedCategory)
-                          ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                     >
                       {cat.toUpperCase()}
@@ -283,17 +317,14 @@ const ShopPage = () => {
                 </div>
 
                 {isScrollable && (
-                  <button 
+                  <button
                     onClick={() => scroll('right')}
                     className="hidden sm:flex absolute right-0 z-10 p-1 bg-gradient-to-l from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 )}
-              </div>
             </div>
-
-
 
           </div>
         </div>
@@ -303,9 +334,14 @@ const ShopPage = () => {
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-12">
         <div className="relative rounded-2xl overflow-hidden h-[150px] sm:h-[200px] lg:h-[250px]">
           <img
-            src={shop.image}
+            src={shop.banner || dummyBanner}
             alt={shop.name}
             className="w-full h-full object-cover"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = dummyBanner;
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent flex flex-col justify-center p-8 sm:p-12 lg:p-16">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-4 max-w-xl leading-tight">
@@ -320,7 +356,7 @@ const ShopPage = () => {
 
       {/* Products Section */}
       <div className="pb-20">
-        <ShopProductsSection selectedCategory={selectedCategory} products={products} />
+        <ShopProductsSection selectedCategory={selectedCategory} products={products} isShopClosed={shop.workMode === false} />
       </div>
 
     </div>

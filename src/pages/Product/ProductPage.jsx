@@ -3,11 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingCart, Star, Heart, Share2, Minus, Plus, ChevronRight, ChevronDown, ChevronUp, Store, FileText, Settings } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import { productsData } from '../../components/sections/PopularProductsSection'
 import { dummyShops } from '../../components/sections/ShopsSection'
 import ProductCard from '../../components/cards/ProductCard'
 import { vendorService } from '../../services/vendorService'
 import { toast } from 'react-hot-toast'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
+import dummyBanner from '../../assets/images/dummy-banner.jpg'
 
 const ProductPage = () => {
   const { id } = useParams()
@@ -50,13 +51,11 @@ const ProductPage = () => {
           const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
 
           // Image fallback hierarchy
-          let prodImage = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop'
+          let prodImage = dummyProduct
           if (prod.variants && prod.variants.length > 0 && prod.variants[0].image) {
-            prodImage = `${baseUrlForImage}${prod.variants[0].image}`
+            prodImage = `${baseUrlForImage}${prod.variants[0].image.startsWith('/') ? prod.variants[0].image : '/' + prod.variants[0].image}`
           } else if (innerProduct.primaryImage) {
-            prodImage = `${baseUrlForImage}${innerProduct.primaryImage}`
-          } else if (prod.shopLogo) {
-            prodImage = `${baseUrlForImage}${prod.shopLogo}`
+            prodImage = `${baseUrlForImage}${innerProduct.primaryImage.startsWith('/') ? innerProduct.primaryImage : '/' + innerProduct.primaryImage}`
           }
 
           const formattedProduct = {
@@ -89,18 +88,19 @@ const ProductPage = () => {
               id: prod.vendorId,
               name: prod.Vendor.shopName || 'Nearzo Store',
               image: prod.Vendor.banner
-                ? `${baseUrlForImage}${prod.Vendor.banner}`
-                : (prod.Vendor.logo ? `${baseUrlForImage}${prod.Vendor.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=400&fit=crop'),
+                ? `${baseUrlForImage}${prod.Vendor.banner.startsWith('/') ? prod.Vendor.banner : '/' + prod.Vendor.banner}`
+                : (prod.Vendor.logo ? `${baseUrlForImage}${prod.Vendor.logo.startsWith('/') ? prod.Vendor.logo : '/' + prod.Vendor.logo}` : dummyBanner),
               rating: parseFloat(prod.Vendor.rating) > 0 ? parseFloat(prod.Vendor.rating).toFixed(1) : '4.5',
               time: '15-25 mins',
-              address: prod.Vendor.address || `${prod.Vendor.city || 'Indore'}, ${prod.Vendor.state || 'MP'}`
+              address: prod.Vendor.address || `${prod.Vendor.city || 'Indore'}, ${prod.Vendor.state || 'MP'}`,
+              workMode: prod.Vendor.workMode !== false
             }
             setShop(formattedShop)
           } else if (prod.vendorId) {
             try {
               const shopData = await vendorService.getShopDetails(prod.vendorId)
               if (shopData && shopData.success) {
-                setShop(shopData.shop)
+                setShop({ ...shopData.shop, workMode: shopData.shop.workMode !== false })
               }
             } catch { }
           }
@@ -116,13 +116,11 @@ const ProductPage = () => {
                 ? Math.round(((originalPrice - basePrice) / originalPrice) * 100)
                 : 0
 
-              let prodImage = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop'
+              let prodImage = dummyProduct
               if (relatedProd.variants && relatedProd.variants.length > 0 && relatedProd.variants[0].image) {
-                prodImage = `${baseUrlForImage}${relatedProd.variants[0].image}`
+                prodImage = `${baseUrlForImage}${relatedProd.variants[0].image.startsWith('/') ? relatedProd.variants[0].image : '/' + relatedProd.variants[0].image}`
               } else if (innerProd.primaryImage) {
-                prodImage = `${baseUrlForImage}${innerProd.primaryImage}`
-              } else if (relatedProd.shopLogo) {
-                prodImage = `${baseUrlForImage}${relatedProd.shopLogo}`
+                prodImage = `${baseUrlForImage}${innerProd.primaryImage.startsWith('/') ? innerProd.primaryImage : '/' + innerProd.primaryImage}`
               }
 
               return {
@@ -142,19 +140,13 @@ const ProductPage = () => {
             })
             setRelatedProducts(mappedRelated)
           } else {
-            const fallbackRelated = productsData.filter(p => p.storeName === formattedProduct.storeName && p.id !== formattedProduct.id).slice(0, 5)
-            setRelatedProducts(fallbackRelated)
+            setRelatedProducts([])
           }
         }
       } catch (error) {
-        console.error('Error fetching product details, falling back to mock:', error)
-        const mockProduct = productsData.find(p => p.id === parseInt(id)) || productsData[0]
-        setProduct(mockProduct)
-        setActiveImage(mockProduct.image)
-        const mockShop = dummyShops.find(s => s.name === mockProduct.storeName) || dummyShops[0]
-        setShop(mockShop)
-        const fallbackRelated = productsData.filter(p => p.storeName === mockProduct.storeName && p.id !== mockProduct.id).slice(0, 5)
-        setRelatedProducts(fallbackRelated)
+        console.error('Error fetching product details:', error)
+        setProduct(null)
+        setRelatedProducts([])
       } finally {
         setLoading(false)
       }
@@ -177,17 +169,14 @@ const ProductPage = () => {
         }
       })
     }
-    list.push('https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80')
-    list.push('https://images.unsplash.com/photo-1515706886582-54c73c5eaf41?w=800&q=80')
     return Array.from(new Set(list))
   }
 
   const images = getProductImages()
 
   // Dynamic variants
-  const variants = product
-    ? Array.isArray(product.variants) && product.variants.length > 0
-      ? product.variants.map(v => {
+  const availableVariants = product && Array.isArray(product.variants) && product.variants.length > 0
+    ? product.variants.map(v => {
         const discountVal = v.discountPrice && Number(v.discountPrice) < Number(v.price)
           ? Math.round(((Number(v.price) - Number(v.discountPrice)) / Number(v.price)) * 100)
           : 0;
@@ -199,17 +188,24 @@ const ProductPage = () => {
           discount: discountVal,
           isAvailable: v.isAvailable
         }
-      })
+      }).filter(v => !(v.isAvailable === false || v.isAvailable === 'false' || v.isAvailable === 0 || v.isAvailable === '0'))
+    : []
+
+  const hasAvailableVariants = availableVariants.length > 0
+
+  const variants = product
+    ? hasAvailableVariants
+      ? availableVariants
       : [
-        {
-          id: 'base',
-          label: product.unit || 'piece',
-          price: Number(product.price || 0),
-          originalPrice: Number(product.originalPrice || product.price || 0),
-          discount: product.discount || 0,
-          isAvailable: product.isAvailable !== undefined ? product.isAvailable : true
-        }
-      ]
+          {
+            id: product.id,
+            label: product.unit || 'piece',
+            price: Number(product.price || 0),
+            originalPrice: Number(product.originalPrice || product.price || 0),
+            discount: product.discount || 0,
+            isAvailable: true
+          }
+        ]
     : []
 
   // Read URL query parameter for active variant selected
@@ -231,7 +227,7 @@ const ProductPage = () => {
     }
   }, [product])
 
-  if (loading || !product) {
+  if (loading) {
     return (
       <div className="min-h-screen pt-24 pb-16 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="relative w-16 h-16">
@@ -243,9 +239,26 @@ const ProductPage = () => {
     )
   }
 
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 pt-20 flex flex-col items-center justify-center px-4">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Product not found</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm mb-6">
+          We couldn't find the product you were looking for.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-6 py-2.5 bg-primary text-white font-semibold rounded-full hover:bg-primary/90 transition-colors shadow-md"
+        >
+          Go Back Home
+        </button>
+      </div>
+    )
+  }
+
   const currentShop = shop || dummyShops[0]
   const hasVariants = product && Array.isArray(product.variants) && product.variants.length > 0
-  const activeOption = hasVariants && selectedVariant !== null ? (variants[selectedVariant] || null) : (!hasVariants ? variants[0] : null)
+  const activeOption = hasAvailableVariants && selectedVariant !== null ? (variants[selectedVariant] || null) : (!hasAvailableVariants ? variants[0] : null)
   const isInCart = activeOption ? cart.some((item) => (item.vendorProductId === product.id || item.id === product.id) && item.unit === activeOption.label) : false
   const existingShopItem = cart.find(item => item.shopName)
   const productShopName = product ? (product.shopName || product.storeName || '') : ''
@@ -288,7 +301,16 @@ const ProductPage = () => {
                     className={`shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl p-1 bg-[#F8F9FA] dark:bg-gray-800 border-2 overflow-hidden transition-all ${activeImage === img ? 'border-[#6C4CF1]' : 'border-transparent hover:border-gray-300'
                       }`}
                   >
-                    <img src={img} alt={`Variant ${idx}`} className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal" />
+                    <img
+                      src={img || dummyProduct}
+                      alt={`Variant ${idx}`}
+                      className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = dummyProduct;
+                      }}
+                    />
                   </button>
                 ))}
               </div>
@@ -313,9 +335,14 @@ const ProductPage = () => {
                 }}
               >
                 <img
-                  src={activeImage}
+                  src={activeImage || dummyProduct}
                   alt={product.name}
                   className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform duration-300 zoom-target group-hover:scale-[1.8]"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = dummyProduct;
+                  }}
                 />
               </div>
 
@@ -371,7 +398,7 @@ const ProductPage = () => {
               {/* <div className="w-full h-px bg-gray-100 dark:bg-gray-800 my-4"></div> */}
 
               {/* Variants / Available Options */}
-              {hasVariants && (
+              {hasAvailableVariants && (
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">Available Options</h3>
@@ -383,7 +410,7 @@ const ProductPage = () => {
                     {variants.map((v, idx) => {
                       const isUnavailable = v.isAvailable === false || v.isAvailable === 'false' || v.isAvailable === 0 || v.isAvailable === '0'
                       if (isUnavailable) return null
-                      
+
                       const hasDiscount = Number(v.originalPrice || 0) > Number(v.price || 0)
                       return (
                         <button
@@ -395,15 +422,14 @@ const ProductPage = () => {
                             setVariantError(false)
                           }}
                           style={{ filter: isUnavailable ? 'blur(0.6px)' : 'none' }}
-                          className={`px-5 py-2.5 rounded-xl border-2 font-semibold text-sm transition-all ${
-                            isUnavailable
-                              ? 'opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600'
-                              : selectedVariant === idx
-                                ? 'border-[#6C4CF1] bg-[#6C4CF1]/5 text-[#6C4CF1] shadow-sm font-bold'
-                                : variantError
-                                  ? 'border-red-400 dark:border-red-950 text-red-500 hover:border-red-500'
-                                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                          }`}
+                          className={`px-5 py-2.5 rounded-xl border-2 font-semibold text-sm transition-all ${isUnavailable
+                            ? 'opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-600'
+                            : selectedVariant === idx
+                              ? 'border-[#6C4CF1] bg-[#6C4CF1]/5 text-[#6C4CF1] shadow-sm font-bold'
+                              : variantError
+                                ? 'border-red-400 dark:border-red-950 text-red-500 hover:border-red-500'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
                         >
                           <span className="flex items-center gap-1.5 flex-wrap justify-center">
                             <span>{v.label} -</span>
@@ -459,7 +485,7 @@ const ProductPage = () => {
                 <div className="flex flex-row gap-2 sm:gap-3">
                   <button
                     onClick={async () => {
-                      if (hasVariants && selectedVariant === null) {
+                      if (hasAvailableVariants && selectedVariant === null) {
                         setVariantError(true)
                         toast.error('Please select an option first!')
                         return
@@ -478,15 +504,14 @@ const ProductPage = () => {
                       }
                     }}
                     disabled={isAdding || isDifferentShop}
-                    className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all shadow-md hover:shadow-lg ${
-                      isDifferentShop
-                        ? 'opacity-40 cursor-not-allowed bg-gray-300 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shadow-none hover:shadow-none hover:translate-y-0'
-                        : isAdding
-                          ? 'opacity-85 cursor-not-allowed bg-purple-500 text-white hover:-translate-y-0.5'
-                          : isInCart
-                            ? 'bg-green-600 hover:bg-green-700 text-white hover:-translate-y-0.5'
-                            : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white hover:-translate-y-0.5'
-                    }`}
+                    className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all shadow-md hover:shadow-lg ${isDifferentShop
+                      ? 'opacity-40 cursor-not-allowed bg-gray-300 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shadow-none hover:shadow-none hover:translate-y-0'
+                      : isAdding
+                        ? 'opacity-85 cursor-not-allowed bg-purple-500 text-white hover:-translate-y-0.5'
+                        : isInCart
+                          ? 'bg-green-600 hover:bg-green-700 text-white hover:-translate-y-0.5'
+                          : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white hover:-translate-y-0.5'
+                      }`}
                   >
                     {isAdding ? (
                       <>
@@ -507,7 +532,7 @@ const ProductPage = () => {
                   </button>
                   <button
                     onClick={async () => {
-                      if (hasVariants && selectedVariant === null) {
+                      if (hasAvailableVariants && selectedVariant === null) {
                         setVariantError(true)
                         toast.error('Please select an option first!')
                         return
@@ -520,11 +545,10 @@ const ProductPage = () => {
                       navigate('/checkout');
                     }}
                     disabled={isDifferentShop}
-                    className={`flex-grow h-12 flex items-center justify-center rounded-xl font-bold text-base transition-all border-2 ${
-                      isDifferentShop
-                        ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-transparent'
-                        : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
-                    }`}
+                    className={`flex-grow h-12 flex items-center justify-center rounded-xl font-bold text-base transition-all border-2 ${isDifferentShop
+                      ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-transparent'
+                      : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
+                      }`}
                   >
                     Buy Now
                   </button>

@@ -11,7 +11,7 @@ const getAvatarUrl = (avatar) => {
 }
 
 const BottomNav = () => {
-  const { cartCount, setIsCartOpen, user } = useApp()
+  const { cartCount, setIsCartOpen, user, setIsMobileSearchOpen } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -40,20 +40,7 @@ const BottomNav = () => {
                 setIsCartOpen(true)
               } else if (item.path === '#search') {
                 e.preventDefault()
-                if (location.pathname !== '/') {
-                  navigate('/')
-                  setTimeout(() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                    const searchInput = document.querySelector('input[placeholder="Search fresh groceries..."]')
-                    if (searchInput) searchInput.focus()
-                  }, 100)
-                } else {
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                  setTimeout(() => {
-                    const searchInput = document.querySelector('input[placeholder="Search fresh groceries..."]')
-                    if (searchInput) searchInput.focus()
-                  }, 300)
-                }
+                setIsMobileSearchOpen(true)
               }
             }}
           >

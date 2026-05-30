@@ -16,6 +16,8 @@ import ProductPage from './pages/Product/ProductPage'
 import ProfilePage from './pages/Profile/ProfilePage'
 import NotFoundPage from './pages/NotFound/NotFoundPage'
 import CheckoutPage from './pages/Checkout/CheckoutPage'
+import AllShopsPage from './pages/AllShops/AllShopsPage'
+import AllProductsPage from './pages/AllProducts/AllProductsPage'
 import { useApp } from './context/AppContext'
 import InstallPWA from './components/common/InstallPWA'
 import LoadingScreen from './components/common/LoadingScreen'
@@ -82,6 +84,32 @@ const App = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <HomePage />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/all-shops"
+              element={
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <AllShopsPage />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/all-products"
+              element={
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <AllProductsPage />
                 </motion.div>
               }
             />

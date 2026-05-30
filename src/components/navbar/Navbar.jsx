@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import logo from '../../assets/nearzo-logo.png'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
+import dummyBanner from '../../assets/images/dummy-banner.jpg'
 import { authService } from '../../services/authService'
 import { searchService } from '../../services/searchService'
 
@@ -30,8 +32,6 @@ const getAvatarUrl = (avatar) => {
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [primaryLocation, setPrimaryLocation] = useState('Delivering to')
-  const [secondaryLocation, setSecondaryLocation] = useState('Your area')
   const [locationModalOpen, setLocationModalOpen] = useState(false)
   const [loginDropdownOpen, setLoginDropdownOpen] = useState(false)
   const [searchType, setSearchType] = useState('products')
@@ -39,7 +39,7 @@ const Navbar = () => {
   const [manualLocation, setManualLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [applying, setApplying] = useState(false)
-  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates } = useApp()
+  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation } = useApp()
   const navigate = useNavigate()
 
   const [suggestions, setSuggestions] = useState([])
@@ -110,8 +110,7 @@ const Navbar = () => {
             const data = await res.json()
             if (data && data.address) {
               const primary = data.address.suburb || data.address.neighbourhood || data.address.residential || data.address.town || data.address.city || 'Location Found'
-              setPrimaryLocation(primary)
-              setSecondaryLocation(data.display_name || 'Details not available')
+              updateLocation(primary, data.display_name || 'Details not available')
               setLocationModalOpen(false)
             }
           } catch (error) {
@@ -132,7 +131,9 @@ const Navbar = () => {
   }
 
   useEffect(() => {
-    fetchLocation()
+    if (primaryLocation === 'Delivering to') {
+      fetchLocation()
+    }
   }, [])
 
   const handleManualLocationSubmit = async (e) => {
@@ -143,14 +144,15 @@ const Navbar = () => {
         const query = encodeURIComponent(manualLocation.trim())
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
         const data = await res.json()
-        
+
         if (data && data.length > 0) {
           const { lat, lon, display_name, name } = data[0]
           updateCoordinates(parseFloat(lat), parseFloat(lon))
-          
+
           const parts = display_name.split(', ')
-          setPrimaryLocation(name || parts[0])
-          setSecondaryLocation(parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location')
+          const primary = name || parts[0]
+          const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
+          updateLocation(primary, secondary)
           setLocationModalOpen(false)
           setManualLocation('')
         } else {
@@ -262,10 +264,8 @@ const Navbar = () => {
 
                     const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
                     const imageUrl = imagePath
-                      ? (imagePath.startsWith('http') ? imagePath : `${baseUrlForImage}${imagePath}`)
-                      : (isProduct
-                        ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=80&h=80&fit=crop'
-                        : 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=80&h=80&fit=crop')
+                      ? (imagePath.startsWith('http') ? imagePath : `${baseUrlForImage}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`)
+                      : (isProduct ? dummyProduct : dummyBanner)
 
                     const categoryName = isProduct
                       ? (item.categoryName || item.Product?.categoryName || 'Groceries')
@@ -290,6 +290,11 @@ const Navbar = () => {
                             src={imageUrl}
                             alt={name}
                             className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = isProduct ? dummyProduct : dummyBanner;
+                            }}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -325,7 +330,7 @@ const Navbar = () => {
         onClick={() => setLocationModalOpen(!locationModalOpen)}
         className="flex items-center justify-between gap-1.5 cursor-pointer px-3 sm:px-2 py-2 md:py-1 group bg-gray-100 md:bg-transparent dark:bg-white/5 md:dark:bg-transparent rounded-xl md:rounded-none border md:border-none border-gray-200 dark:border-white/10"
       >
-        <div className="flex flex-col max-w-[90px] md:max-w-[120px] lg:max-w-[140px]">
+        <div className="flex flex-col max-w-[180px] md:max-w-[120px] lg:max-w-[140px]">
           <span className="text-[13px] sm:text-[15px] font-extrabold text-gray-900 dark:text-white leading-tight truncate group-hover:text-primary transition-colors">{primaryLocation}</span>
           <span className="text-[10px] sm:text-[12px] text-gray-500 font-medium truncate">{secondaryLocation}</span>
         </div>
@@ -347,7 +352,7 @@ const Navbar = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="absolute top-full left-0 md:-left-14 sm:left-0 mt-3 w-full md:w-[300px] sm:w-[360px] bg-white dark:bg-gray-900 rounded-2xl p-4 sm:p-5 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+              className="fixed inset-x-4 top-20 sm:absolute sm:inset-auto sm:top-full sm:left-0 sm:mt-3 md:-left-14 sm:w-[360px] md:w-[300px] bg-white dark:bg-gray-900 rounded-2xl p-4 sm:p-5 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
             >
               <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Choose your location</h3>
 
@@ -375,8 +380,8 @@ const Navbar = () => {
                   className="flex-1 w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-purple-500 dark:text-white text-sm"
                   required
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={applying}
                   className="bg-purple-600 text-white px-5 rounded-xl font-semibold hover:bg-purple-700 transition-colors text-sm disabled:opacity-70 flex items-center justify-center min-w-[75px]"
                 >
@@ -423,7 +428,7 @@ const Navbar = () => {
             </div>
 
             {/* Mobile Header Location Selector */}
-            <div className="md:hidden flex-grow max-w-[170px] sm:max-w-xs relative shrink-0">
+            <div className="md:hidden flex-grow max-w-[260px] sm:max-w-xs relative shrink-0">
               {locationSelectorContent}
             </div>
 
@@ -447,12 +452,14 @@ const Navbar = () => {
               </motion.button>
 
               {/* Mobile Menu Button */}
-              <button
-                className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
-                onClick={() => setMobileOpen(true)}
-              >
-                <Menu className="w-6 h-6" />
-              </button>
+              {!user && (
+                <button
+                  className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
+                  onClick={() => setMobileOpen(true)}
+                >
+                  <Menu className="w-6 h-6" />
+                </button>
+              )}
 
               {/* Cart (Desktop Only) */}
               <motion.button
@@ -577,7 +584,7 @@ const Navbar = () => {
                               Login as User
                             </button>
                             <button
-                              // onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/login') }}
+                              onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/login') }}
                               className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
                             >
                               <Store className="w-4 h-4 text-orange-500" />
@@ -592,15 +599,169 @@ const Navbar = () => {
               </div>
             </div>
           </div>
-
-          {/* Mobile Search Bar */}
-          <div className="md:hidden pb-4">
-            <div className="relative w-full">
-              {searchBarContent}
-            </div>
-          </div>
         </div>
       </motion.nav>
+
+      {/* Mobile Search Fullscreen Overlay */}
+      <AnimatePresence>
+        {isMobileSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 z-[100] bg-white dark:bg-gray-950 flex flex-col"
+          >
+            {/* Header row */}
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
+              <button
+                onClick={() => { setIsMobileSearchOpen(false); setSearchQuery('') }}
+                className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300 transition-colors"
+              >
+                <ChevronDown className="w-6 h-6 rotate-90" />
+              </button>
+
+              {/* Enhanced Search Input */}
+              <div className="flex-1 relative flex items-center bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/10 transition-all duration-300">
+                {/* Search Type Selector (Inline mini) */}
+                <div className="relative h-full flex items-center border-r border-gray-200 dark:border-white/10 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSearchTypeDropdownOpen(!searchTypeDropdownOpen)}
+                    className="flex items-center gap-1 px-2.5 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 bg-transparent outline-none rounded-l-xl"
+                  >
+                    {searchType === 'products' ? 'Products' : 'Shops'}
+                    <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${searchTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {searchTypeDropdownOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setSearchTypeDropdownOpen(false)}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute top-full left-0 mt-1 w-28 bg-white dark:bg-gray-900 rounded-xl p-1 z-50 shadow-xl border border-gray-100 dark:border-white/10"
+                        >
+                          <button
+                            onClick={() => { setSearchType('products'); setSearchTypeDropdownOpen(false) }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${searchType === 'products' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                          >
+                            Products
+                          </button>
+                          <button
+                            onClick={() => { setSearchType('shops'); setSearchTypeDropdownOpen(false) }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${searchType === 'shops' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                          >
+                            Shops
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <Search className="w-4 h-4 text-gray-400 ml-2.5 shrink-0" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder={searchType === 'products' ? "Search fresh groceries..." : "Search local shops..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="ml-2 bg-transparent outline-none text-sm text-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 w-full py-2 pr-3"
+                />
+              </div>
+            </div>
+
+            {/* Suggestions / Results area */}
+            <div className="flex-grow overflow-y-auto bg-gray-50 dark:bg-gray-950 p-4 pb-safe">
+              {searchQuery.trim().length < 2 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500">
+                  <Search className="w-12 h-12 stroke-[1.5] mb-3 text-purple-400" />
+                  <p className="text-sm font-bold">What are you looking for?</p>
+                  <p className="text-xs text-gray-400 mt-1">Search fresh groceries, store name, or categories</p>
+                </div>
+              ) : searchLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                  <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <span className="text-sm font-semibold">Searching the market...</span>
+                </div>
+              ) : suggestions.length > 0 ? (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 divide-y divide-gray-50 dark:divide-white/5 overflow-hidden">
+                  {suggestions.map((item) => {
+                    const isProduct = searchType === 'products'
+                    const name = isProduct
+                      ? (item.name || item.Product?.name || 'Product')
+                      : (item.shopName || item.name || 'Store')
+
+                    const imagePath = isProduct
+                      ? (item.primaryImage || item.Product?.primaryImage || item.image)
+                      : (item.logo || item.banner || item.image)
+
+                    const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
+                    const imageUrl = imagePath
+                      ? (imagePath.startsWith('http') ? imagePath : `${baseUrlForImage}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`)
+                      : (isProduct ? dummyProduct : dummyBanner)
+
+                    const categoryName = isProduct
+                      ? (item.categoryName || item.Product?.categoryName || 'Groceries')
+                      : (item.ShopCategory?.shopCategoryName || item.shopCategoryName || 'Store')
+
+                    const shopName = isProduct
+                      ? (item.shopName || item.Vendor?.shopName || item.shop?.shopName || '')
+                      : ''
+
+                    const price = isProduct
+                      ? (item.discountPrice || item.price || item.Product?.price)
+                      : null
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          setIsMobileSearchOpen(false)
+                          handleSuggestionClick(item)
+                        }}
+                        className="flex items-center gap-4 p-3.5 hover:bg-purple-50/50 dark:hover:bg-purple-500/10 cursor-pointer transition-colors active:bg-gray-50 dark:active:bg-white/5"
+                      >
+                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-gray-800">
+                          <img
+                            src={imageUrl}
+                            alt={name}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = isProduct ? dummyProduct : dummyBanner;
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                            {name}
+                          </h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold truncate mt-1">
+                            {categoryName} {shopName && `• ${shopName}`} {price !== null && `• ₹${price}`}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="py-20 text-center text-gray-400 dark:text-gray-500">
+                  <p className="text-sm font-bold">No matches found</p>
+                  <p className="text-xs mt-1">Check spelling or search for another keyword</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Sidebar */}
       <AnimatePresence>
@@ -638,7 +799,7 @@ const Navbar = () => {
                       Login as User
                     </button>
                     <button
-                      // onClick={() => { setMobileOpen(false); navigate('/vendor/login') }}
+                      onClick={() => { setMobileOpen(false); navigate('/vendor/login') }}
                       className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-purple-600 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 transition-colors"
                     >
                       <Store className="w-4 h-4" />

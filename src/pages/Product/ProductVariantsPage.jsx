@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { ShoppingCart, Star, Heart, ArrowLeft, Store, BadgePercent } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { vendorService } from '../../services/vendorService'
-import { productsData } from '../../components/sections/PopularProductsSection'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
 
 const ProductVariantsPage = () => {
   const { id } = useParams()
@@ -30,8 +30,8 @@ const ProductVariantsPage = () => {
 
           const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
           const prodImage = prod.variants && prod.variants.length > 0 && prod.variants[0].image
-            ? `${baseUrlForImage}${prod.variants[0].image}`
-            : (prod.logo ? `${baseUrlForImage}${prod.logo}` : 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop')
+            ? `${baseUrlForImage}${prod.variants[0].image.startsWith('/') ? prod.variants[0].image : '/' + prod.variants[0].image}`
+            : (prod.logo ? `${baseUrlForImage}${prod.logo.startsWith('/') ? prod.logo : '/' + prod.logo}` : dummyProduct)
 
           setProduct({
             id: prod.id,
@@ -50,9 +50,7 @@ const ProductVariantsPage = () => {
         }
       } catch (error) {
         console.error('Error fetching product in variants page:', error)
-        // Fallback to mock product
-        const mockProduct = productsData.find(p => p.id === parseInt(id)) || productsData[0]
-        setProduct(mockProduct)
+        setProduct(null)
       } finally {
         setLoading(false)
       }
@@ -63,11 +61,28 @@ const ProductVariantsPage = () => {
     }
   }, [id])
 
-  if (loading || !product) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 pt-[140px] md:pt-20 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-950 pt-20 flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         <p className="mt-4 text-gray-500 dark:text-gray-400 font-semibold">Loading product variants...</p>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 pt-20 flex flex-col items-center justify-center px-4">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Product variants not found</h3>
+        <p className="text-gray-500 dark:text-gray-400 text-center max-w-sm mb-6">
+          We couldn't find variants for the product you were looking for.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-6 py-2.5 bg-primary text-white font-semibold rounded-full hover:bg-primary/90 transition-colors shadow-md"
+        >
+          Go Back Home
+        </button>
       </div>
     )
   }

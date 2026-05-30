@@ -94,6 +94,18 @@ export const authService = {
     }
   },
 
+  updateLocation: async (latitude, longitude) => {
+    try {
+      const response = await API.put('/auth/location', {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude)
+      })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
   forgotPassword: async (email) => {
     try {
       const response = await API.post('/auth/forgot-password', { email })

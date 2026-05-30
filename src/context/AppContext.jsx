@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { cartService } from '../services/cartService'
+import { authService } from '../services/authService'
 import { toast } from 'react-hot-toast'
+import dummyProduct from '../assets/images/dummyProduct.jpg'
 
 const AppContext = createContext()
 
@@ -25,6 +27,22 @@ export const AppProvider = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [cartDeliveryDetails, setCartDeliveryDetails] = useState(null)
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
+  const [primaryLocation, setPrimaryLocation] = useState(() => {
+    try {
+      return localStorage.getItem('user_primary_location') || 'Delivering to'
+    } catch {
+      return 'Delivering to'
+    }
+  })
+  const [secondaryLocation, setSecondaryLocation] = useState(() => {
+    try {
+      return localStorage.getItem('user_secondary_location') || 'Your area'
+    } catch {
+      return 'Your area'
+    }
+  })
   const [coordinates, setCoordinates] = useState(() => {
     try {
       const lat = localStorage.getItem('user_latitude')
@@ -33,6 +51,29 @@ export const AppProvider = ({ children }) => {
     } catch { }
     return { latitude: 22.760287481529783, longitude: 75.90990165620354 } // Default
   })
+
+  // Synchronize dynamic coordinates to the backend if logged in
+  useEffect(() => {
+    const isLoggedIn = !!localStorage.getItem('token')
+    if (!isLoggedIn) return
+
+    const syncLocationToBackend = async () => {
+      try {
+        if (coordinates && coordinates.latitude && coordinates.longitude) {
+          await authService.updateLocation(coordinates.latitude, coordinates.longitude)
+          console.log('Location successfully synchronized to backend:', coordinates)
+        }
+      } catch (err) {
+        console.error('Failed to synchronize location to backend:', err)
+      }
+    }
+
+    const timer = setTimeout(() => {
+      syncLocationToBackend()
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [coordinates])
 
   // Synchronize cart with localStorage whenever it changes (only for guest users)
   useEffect(() => {
@@ -53,7 +94,7 @@ export const AppProvider = ({ children }) => {
 
         const formatted = backendCart.map(item => {
           const productInfo = item.Product || {}
-          let imgUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop'
+          let imgUrl = dummyProduct
 
           if (item.image) {
             imgUrl = item.image.startsWith('http') ? item.image : `${baseUrlForImage}${item.image}`
@@ -74,6 +115,11 @@ export const AppProvider = ({ children }) => {
           }
         })
         setCart(formatted)
+        if (data.delivery) {
+          setCartDeliveryDetails(data.delivery)
+        } else {
+          setCartDeliveryDetails(null)
+        }
       }
     } catch (err) {
       console.error('Failed to fetch cart:', err)
@@ -90,11 +136,15 @@ export const AppProvider = ({ children }) => {
         if (Array.isArray(items) && items.length > 0) {
           for (const item of items) {
             try {
-              await cartService.addToCart({
+              const syncPayload = {
                 vendorProductId: item.vendorProductId || item.id,
-                variantId: item.variantId || 'base',
                 quantity: item.quantity || 1
-              })
+              }
+              const varId = item.variantId
+              if (varId && varId !== 'base' && String(varId) !== String(item.vendorProductId || item.id)) {
+                syncPayload.variantId = varId
+              }
+              await cartService.addToCart(syncPayload)
             } catch (e) {
               console.error('Error syncing cart item to API:', e)
             }
@@ -123,7 +173,16 @@ export const AppProvider = ({ children }) => {
     setCoordinates({ latitude: lat, longitude: lng })
   }, [])
 
-  const addToCart = useCallback((itemToAdd) => {
+  const updateLocation = useCallback((primary, secondary) => {
+    try {
+      localStorage.setItem('user_primary_location', primary)
+      localStorage.setItem('user_secondary_location', secondary)
+    } catch { }
+    setPrimaryLocation(primary)
+    setSecondaryLocation(secondary)
+  }, [])
+
+  const addToCart = useCallback(async (itemToAdd) => {
     const isLoggedIn = !!localStorage.getItem('user')
 
     // Single Shop Cart Enforcement Check
@@ -133,12 +192,32 @@ export const AppProvider = ({ children }) => {
       return false
     }
 
+    if (isLoggedIn) {
+      try {
+        const payload = {
+          vendorProductId: itemToAdd.id,
+          quantity: itemToAdd.quantity || 1
+        }
+        const varId = itemToAdd.variantId
+        if (varId && varId !== 'base' && String(varId) !== String(itemToAdd.id)) {
+          payload.variantId = varId
+        }
+        await cartService.addToCart(payload)
+        await fetchCart()
+        return true
+      } catch (err) {
+        console.error('Failed to add to cart backend:', err)
+        return false
+      }
+    }
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.vendorProductId === itemToAdd.id && item.variantId === (itemToAdd.variantId || 'base'))
+      const targetVariantId = (itemToAdd.variantId && itemToAdd.variantId !== 'base') ? itemToAdd.variantId : itemToAdd.id
+      const existing = prev.find((item) => item.vendorProductId === itemToAdd.id && item.variantId === targetVariantId)
       let updatedCart = []
       if (existing) {
         updatedCart = prev.map((item) =>
-          (item.vendorProductId === itemToAdd.id && item.variantId === (itemToAdd.variantId || 'base'))
+          (item.vendorProductId === itemToAdd.id && item.variantId === targetVariantId)
             ? { ...item, quantity: item.quantity + (itemToAdd.quantity || 1) }
             : item
         )
@@ -147,7 +226,7 @@ export const AppProvider = ({ children }) => {
         updatedCart = [...prev, {
           id: newId,
           vendorProductId: itemToAdd.id,
-          variantId: itemToAdd.variantId || 'base',
+          variantId: targetVariantId,
           name: itemToAdd.name || 'Product',
           price: Number(itemToAdd.price || 0),
           quantity: itemToAdd.quantity || 1,
@@ -156,15 +235,13 @@ export const AppProvider = ({ children }) => {
           shopName: newShopName
         }]
       }
-      if (!isLoggedIn) {
-        try {
-          localStorage.setItem('cart', JSON.stringify(updatedCart))
-        } catch {}
-      }
+      try {
+        localStorage.setItem('cart', JSON.stringify(updatedCart))
+      } catch { }
       return updatedCart
     })
     return true
-  }, [cart])
+  }, [cart, fetchCart])
 
   const removeFromCart = useCallback(async (cartId) => {
     const isLoggedIn = !!localStorage.getItem('user')
@@ -183,7 +260,7 @@ export const AppProvider = ({ children }) => {
       if (!isLoggedIn) {
         try {
           localStorage.setItem('cart', JSON.stringify(updatedCart))
-        } catch {}
+        } catch { }
       }
       return updatedCart
     })
@@ -216,7 +293,7 @@ export const AppProvider = ({ children }) => {
       if (!isLoggedIn) {
         try {
           localStorage.setItem('cart', JSON.stringify(updatedCart))
-        } catch {}
+        } catch { }
       }
       return updatedCart
     })
@@ -236,7 +313,7 @@ export const AppProvider = ({ children }) => {
     } else {
       try {
         localStorage.removeItem('cart')
-      } catch {}
+      } catch { }
     }
     setCart([])
   }, [])
@@ -263,8 +340,14 @@ export const AppProvider = ({ children }) => {
     toggleDarkMode,
     isCartOpen,
     setIsCartOpen,
+    cartDeliveryDetails,
+    isMobileSearchOpen,
+    setIsMobileSearchOpen,
     coordinates,
     updateCoordinates,
+    primaryLocation,
+    secondaryLocation,
+    updateLocation,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

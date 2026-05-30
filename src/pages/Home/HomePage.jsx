@@ -12,7 +12,7 @@ import BannerSection from '../../components/sections/BannerSection'
 const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null)
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pt-[140px] md:pt-24">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pt-20 md:pt-24">
       {/* Category pills (Zepto style) */}
       <CategoryPills selected={selectedCategory} onSelect={setSelectedCategory} />
 

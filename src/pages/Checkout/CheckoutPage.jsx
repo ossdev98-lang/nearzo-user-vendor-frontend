@@ -4,13 +4,18 @@ import { useApp } from '../../context/AppContext'
 import { ChevronLeft, MapPin, CreditCard, Banknote, ShieldCheck, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { userService } from '../../services/userService'
+import { orderService } from '../../services/orderService'
 
 const CheckoutPage = () => {
-  const { cart, cartTotal, clearCart, user, setIsCartOpen } = useApp()
+  const { cart, cartTotal, clearCart, user, setIsCartOpen, cartDeliveryDetails } = useApp()
   const navigate = useNavigate()
   const [paymentMethod, setPaymentMethod] = useState('cod')
   const [addresses, setAddresses] = useState([])
   const [loadingAddress, setLoadingAddress] = useState(true)
+  const [orderNotes, setOrderNotes] = useState('')
+  const [placingOrder, setPlacingOrder] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [placedOrderAmount, setPlacedOrderAmount] = useState(0)
 
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -35,23 +40,57 @@ const CheckoutPage = () => {
     ? addresses.find(a => String(a.id) === String(selectedAddressId)) || addresses.find(a => a.isDefault) || addresses[0]
     : addresses.find(a => a.isDefault) || addresses[0]
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0) {
       toast.error('Your cart is empty!')
       return
     }
+    if (!defaultAddress) {
+      toast.error('Please select or add a delivery address first!')
+      return
+    }
+
+    setPlacingOrder(true)
     const toastId = toast.loading('Placing your order...')
-    setTimeout(() => {
-      toast.success('Order placed successfully! 🎉', { id: toastId })
-      clearCart()
-      navigate('/profile')
-    }, 1500)
+
+    const payload = {
+      address: defaultAddress.address || '',
+      city: defaultAddress.city || '',
+      state: defaultAddress.state || '',
+      pincode: defaultAddress.pincode || '',
+      latitude: localStorage.getItem('user_latitude') ? parseFloat(localStorage.getItem('user_latitude')) : null,
+      longitude: localStorage.getItem('user_longitude') ? parseFloat(localStorage.getItem('user_longitude')) : null,
+      notes: orderNotes || ''
+    }
+
+    try {
+      const data = await orderService.placeOrder(payload)
+      if (data && data.success) {
+        toast.success('Order placed successfully! 🎉', { id: toastId })
+        setPlacedOrderAmount(finalTotal)
+        clearCart()
+        setShowSuccessModal(true)
+        // Automatically redirect to profile page after 15 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false)
+          navigate('/profile')
+        }, 15000)
+      } else {
+        toast.error(data.message || 'Failed to place order', { id: toastId })
+      }
+    } catch (error) {
+      console.error('Error placing order:', error)
+      const errorMsg = error.message || 'Error occurred while placing order. Please try again.'
+      toast.error(errorMsg, { id: toastId })
+    } finally {
+      setPlacingOrder(false)
+    }
   }
 
-  const deliveryFee = cartTotal > 500 ? 0 : 40
+  const deliveryFee = cartDeliveryDetails ? Number(cartDeliveryDetails.deliveryCharge) : 0
   const finalTotal = cartTotal + deliveryFee
 
-  if (cart.length === 0) {
+  if (cart.length === 0 && !showSuccessModal) {
     return (
       <div className="min-h-screen pt-24 pb-16 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Your cart is empty</h2>
@@ -61,7 +100,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen pt-[140px] md:pt-[100px] pb-24 bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen pt-20 md:pt-[100px] pb-24 bg-gray-50 dark:bg-gray-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
@@ -155,6 +194,21 @@ const CheckoutPage = () => {
               </div>
             </div>
 
+            {/* Delivery Instructions */}
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Delivery Instructions / Notes (Optional)
+              </h2>
+              <textarea
+                placeholder="e.g. Ring the bell, leave with guard, call upon arrival..."
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                rows="3"
+                className="w-full p-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-white/5 rounded-xl outline-none text-sm text-gray-700 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 transition-all shadow-sm resize-none"
+              />
+            </div>
+
           </div>
 
           {/* Right Column: Order Summary (5 cols) */}
@@ -182,6 +236,36 @@ const CheckoutPage = () => {
                 ))}
               </div>
 
+              {/* Delivery Details Alert */}
+              {cartDeliveryDetails && (
+                <div className="mb-5 p-3.5 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-xl text-xs space-y-1.5 text-purple-700 dark:text-purple-300 font-medium">
+                  <div className="flex justify-between items-center">
+                    <span>Store Distance:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{cartDeliveryDetails.distanceKm} km</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Free Delivery Radius:</span>
+                    <span className="font-bold text-green-600 dark:text-emerald-400">First {cartDeliveryDetails.freeDeliveryKm} km FREE</span>
+                  </div>
+                  {cartDeliveryDetails.deliveryCharge > 0 ? (
+                    <>
+                      <div className="flex justify-between items-center text-red-500 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                        <span>Chargeable Distance:</span>
+                        <span>{cartDeliveryDetails.chargeableKm} km</span>
+                      </div>
+                      <p className="text-[9.5px] text-gray-500 dark:text-gray-400 leading-normal">
+                        *Rate: ₹{cartDeliveryDetails.delivery_charge_per_km}/km for the distance beyond the free limit ({cartDeliveryDetails.freeDeliveryKm} km).
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center text-green-600 dark:text-emerald-400 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                      <span>Delivery Status:</span>
+                      <span className="bg-green-100 dark:bg-emerald-950/50 px-2 py-0.5 rounded text-[10px]">FREE DELIVERY 🎉</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-3 text-sm border-t border-dashed border-gray-200 dark:border-gray-800 pt-5 mb-5">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Item Total</span>
@@ -206,15 +290,87 @@ const CheckoutPage = () => {
 
               <button
                 onClick={handlePlaceOrder}
-                className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-base font-bold transition-all shadow-md shadow-purple-600/20"
+                disabled={placingOrder}
+                className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-base font-bold transition-all shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Place Order
+                {placingOrder ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Placing Order...
+                  </>
+                ) : (
+                  'Place Order'
+                )}
               </button>
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* Order Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center px-4 animate-fadeIn">
+          {/* Blur Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            onClick={() => {
+              setShowSuccessModal(false)
+              navigate('/profile')
+            }}
+          />
+
+          {/* Modal Container */}
+          <div className="bg-white dark:bg-gray-900 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative z-[151] border border-gray-100 dark:border-white/5 text-center flex flex-col items-center">
+            
+            {/* Animated Check Circle */}
+            <div className="w-20 h-20 bg-green-100 dark:bg-emerald-950/50 rounded-full flex items-center justify-center text-green-600 dark:text-emerald-400 mb-6 relative">
+              <svg className="w-10 h-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <div className="absolute inset-0 rounded-full border-4 border-green-500/20 animate-ping"></div>
+            </div>
+
+            {/* Congratulations */}
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Order Confirmed! 🎉</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Thank you for shopping with us! Your order has been placed and is being prepared by the store.
+            </p>
+
+            {/* Order Details Brief Box */}
+            <div className="w-full bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-white/5 rounded-2xl p-4 text-left text-xs mb-8 space-y-2.5 text-gray-600 dark:text-gray-300">
+              <div className="flex justify-between font-medium">
+                <span>Payment Mode:</span>
+                <span className="font-bold text-gray-900 dark:text-white uppercase">Cash on Delivery (COD)</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span>Total Amount:</span>
+                <span className="font-black text-purple-600 dark:text-purple-400 text-sm">₹{placedOrderAmount || finalTotal}</span>
+              </div>
+              <div className="border-t border-gray-200 dark:border-white/10 pt-2 flex flex-col gap-0.5">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Deliver to:</span>
+                <span className="font-bold text-gray-800 dark:text-white truncate">
+                  {defaultAddress?.address}, {defaultAddress?.city}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false)
+                  navigate('/')
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-purple-500/20 text-sm flex items-center justify-center gap-2"
+              >
+                Continue Shopping
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }

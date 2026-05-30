@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { Link, useNavigate } from 'react-router-dom'
 import { X, Plus, Minus, Trash2, ShoppingCart } from 'lucide-react'
 import Button from '../../components/ui/Button'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
 
 const CartPage = () => {
   const { cart, removeFromCart, updateQuantity, cartCount, cartTotal, clearCart } = useApp()
@@ -93,11 +94,13 @@ const CartPage = () => {
                 >
                   <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
                     <img
-                      src={item.image}
+                      src={item.image || dummyProduct}
                       alt={item.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      crossOrigin="anonymous"
                       onError={(e) => {
-                        e.target.src = `https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=100&h=100&fit=crop`
+                        e.target.onerror = null;
+                        e.target.src = dummyProduct;
                       }}
                       loading="lazy"
                     />

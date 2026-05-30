@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
 
 const CartDrawer = () => {
-  const { isCartOpen, setIsCartOpen, cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useApp()
+  const { isCartOpen, setIsCartOpen, cart, removeFromCart, updateQuantity, cartTotal, cartCount, cartDeliveryDetails } = useApp()
   const navigate = useNavigate()
   const [removingIds, setRemovingIds] = useState([])
 
@@ -103,10 +104,14 @@ const CartDrawer = () => {
                       {/* Product Image */}
                       <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 dark:bg-black/20 flex-shrink-0">
                         <img
-                          src={item.image}
+                          src={item.image || dummyProduct}
                           alt={item.name}
                           className="w-full h-full object-cover"
-                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=100&h=100&fit=crop' }}
+                          crossOrigin="anonymous"
+                          onError={(e) => { 
+                            e.target.onerror = null;
+                            e.target.src = dummyProduct; 
+                          }}
                         />
                       </div>
 
@@ -164,12 +169,61 @@ const CartDrawer = () => {
             {/* Footer / Checkout */}
             {cart.length > 0 && (
               <div className="p-5 sm:p-6 bg-gray-50 dark:bg-gray-950/50 border-t border-gray-100 dark:border-white/5">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-sm text-gray-500 font-medium">Subtotal</span>
-                  <span className="text-lg font-extrabold text-gray-900 dark:text-white">
-                    {formatCurrency(cartTotal)}
+                {/* Delivery Information Banner */}
+                {cartDeliveryDetails && (
+                  <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-xl text-xs flex flex-col gap-1.5 text-purple-700 dark:text-purple-300 font-medium">
+                    <div className="flex justify-between items-center">
+                      <span>Store Distance:</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{cartDeliveryDetails.distanceKm} km</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Free Delivery Radius:</span>
+                      <span className="font-bold text-green-600 dark:text-emerald-400">First {cartDeliveryDetails.freeDeliveryKm} km FREE</span>
+                    </div>
+                    {cartDeliveryDetails.deliveryCharge > 0 ? (
+                      <>
+                        <div className="flex justify-between items-center text-red-500 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                          <span>Chargeable Distance:</span>
+                          <span>{cartDeliveryDetails.chargeableKm} km</span>
+                        </div>
+                        <p className="text-[9.5px] text-gray-500 dark:text-gray-400 leading-normal">
+                          *Rate: ₹{cartDeliveryDetails.delivery_charge_per_km}/km for the distance beyond the free limit ({cartDeliveryDetails.freeDeliveryKm} km).
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex justify-between items-center text-green-600 dark:text-emerald-400 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                        <span>Delivery Status:</span>
+                        <span className="bg-green-100 dark:bg-emerald-950/50 px-2 py-0.5 rounded text-[10px]">FREE DELIVERY 🎉</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-3 mb-4 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 dark:text-gray-400 font-medium">Subtotal</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(cartTotal)}
+                    </span>
+                  </div>
+                  
+                  {cartDeliveryDetails && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500 dark:text-gray-400 font-medium">Delivery Fee</span>
+                      <span className={`font-bold ${cartDeliveryDetails.deliveryCharge === 0 ? 'text-green-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'}`}>
+                        {cartDeliveryDetails.deliveryCharge === 0 ? 'FREE' : formatCurrency(cartDeliveryDetails.deliveryCharge)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center mb-5 border-t border-gray-200 dark:border-white/10 pt-3">
+                  <span className="text-sm font-extrabold text-gray-900 dark:text-white">Total Amount</span>
+                  <span className="text-xl font-black text-purple-600 dark:text-purple-400">
+                    {formatCurrency(cartTotal + (cartDeliveryDetails ? cartDeliveryDetails.deliveryCharge : 0))}
                   </span>
                 </div>
+
                 <button
                   onClick={handleCheckout}
                   className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-purple-500/25"

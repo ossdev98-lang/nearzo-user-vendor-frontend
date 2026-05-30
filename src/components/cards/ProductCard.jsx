@@ -2,8 +2,10 @@ import { motion } from 'framer-motion'
 import { useApp } from '../../context/AppContext'
 import { ShoppingCart, Heart, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import dummyProduct from '../../assets/images/dummyProduct.jpg'
 
-const ProductCard = ({ product, index, showAddToCart = true }) => {
+const ProductCard = ({ product, index, showAddToCart = true, isShopClosed = false }) => {
   const navigate = useNavigate()
   const { addToCart, cart } = useApp()
   const isInCart = cart.some((item) => item.vendorProductId === product.id || item.id === product.id)
@@ -13,6 +15,10 @@ const ProductCard = ({ product, index, showAddToCart = true }) => {
 
   const handleNavigate = (e) => {
     if (e) e.stopPropagation()
+    if (isShopClosed) {
+      toast.error('This shop is currently Closed. You cannot place orders right now.', { id: 'shop-closed' })
+      return
+    }
     navigate(`/product/${product.id}`)
   }
 
@@ -38,10 +44,15 @@ const ProductCard = ({ product, index, showAddToCart = true }) => {
         )}
 
         <img
-          src={product.image}
+          src={product.image || dummyProduct}
           alt={product.name}
           className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-110 transition-transform duration-500"
           loading="lazy"
+          crossOrigin="anonymous"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = dummyProduct;
+          }}
         />
       </div>
 

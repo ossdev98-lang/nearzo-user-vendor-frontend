@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { useNavigate } from 'react-router-dom'
 import ProductCard from '../cards/ProductCard'
 
-const ShopProductsSection = ({ selectedCategory, products }) => {
+const ShopProductsSection = ({ selectedCategory, products, isShopClosed }) => {
   const navigate = useNavigate()
   const items = products || []
 
@@ -18,7 +18,7 @@ const ShopProductsSection = ({ selectedCategory, products }) => {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
         {items.map((product, index) => (
-          <ProductCard key={product.id} product={product} index={index} showAddToCart={true} />
+          <ProductCard key={product.id} product={product} index={index} showAddToCart={true} isShopClosed={isShopClosed} />
         ))}
       </div>
 
