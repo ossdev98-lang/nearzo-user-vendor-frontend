@@ -1,9 +1,11 @@
 import API from './api'
+import { requestForToken } from './firebase'
 
 export const authService = {
   login: async (credentials) => {
     try {
-      const response = await API.post('/auth/login', credentials)
+      const fcmToken = await requestForToken()
+      const response = await API.post('/auth/login', { ...credentials, fcmToken })
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)
         if (response.data.user) {
@@ -21,7 +23,8 @@ export const authService = {
 
   googleLogin: async (data) => {
     try {
-      const response = await API.post('/auth/google/login', data)
+      const fcmToken = await requestForToken()
+      const response = await API.post('/auth/google/login', { ...data, fcmToken })
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)
         if (response.data.user) {
@@ -37,7 +40,19 @@ export const authService = {
 
   register: async (userData) => {
     try {
-      const response = await API.post('/auth/register', userData)
+      const fcmToken = await requestForToken()
+      
+      let payload
+      if (userData instanceof FormData) {
+        payload = userData
+        if (!payload.has('fcmToken')) {
+          payload.append('fcmToken', fcmToken)
+        }
+      } else {
+        payload = { ...userData, fcmToken }
+      }
+      
+      const response = await API.post('/auth/register', payload)
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)
         if (response.data.user) {
@@ -145,6 +160,15 @@ export const authService = {
   changePassword: async (currentPassword, newPassword, confirmPassword) => {
     try {
       const response = await API.post('/auth/change-password', { currentPassword, newPassword, confirmPassword })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
+  },
+
+  allowNotification: async (allowNotification) => {
+    try {
+      const response = await API.put('/auth/allow-notification', { allowNotification })
       return response.data
     } catch (error) {
       throw error.response?.data || error

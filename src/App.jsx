@@ -27,6 +27,8 @@ import VendorVerifyOTPPage from './pages/Login/VendorVerifyOTPPage'
 import VendorForgotPasswordPage from './pages/Login/VendorForgotPasswordPage'
 import VendorResetPasswordPage from './pages/Login/VendorResetPasswordPage'
 import VendorDashboard from './pages/Vendor/VendorDashboard'
+import { onMessageListener } from './services/firebase'
+import { toast } from 'react-hot-toast'
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useApp()
@@ -42,6 +44,29 @@ const App = () => {
   const location = useLocation()
   const [isInitialMount, setIsInitialMount] = useState(true)
   const [isPageLoading, setIsPageLoading] = useState(true)
+
+  useEffect(() => {
+    // Setup foreground message listener for push notifications
+    const unsubscribe = onMessageListener((payload) => {
+      console.log('Foreground message received in active view:', payload)
+      toast((t) => (
+        <div className="flex flex-col gap-1">
+          <div className="font-extrabold text-gray-900 dark:text-white text-sm">
+            🔔 {payload.notification?.title || 'New Notification'}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {payload.notification?.body || 'You have a new update!'}
+          </div>
+        </div>
+      ), {
+        duration: 5000,
+        position: 'top-right',
+      })
+    })
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     // Keep splash loader on screen for 1.8 seconds on initial app startup

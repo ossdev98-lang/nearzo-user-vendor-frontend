@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import {
@@ -14,6 +14,8 @@ import {
   Leaf,
   MapPin,
   Loader2,
+  HelpCircle,
+  X,
 } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
@@ -37,6 +39,7 @@ const RegisterPage = () => {
   const [locationLoading, setLocationLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
   const [errors, setErrors] = useState({})
   const navigate = useNavigate()
 
@@ -206,9 +209,19 @@ const RegisterPage = () => {
         </div>
 
         {/* Welcome Text */}
-        <div className="mb-6 mt-2 md:mt-0 text-center md:text-left">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sign Up</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Join us to start shopping locally</p>
+        <div className="mb-6 mt-2 md:mt-0 flex items-center justify-between">
+          <div className="text-left">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sign Up</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Join us to start shopping locally</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 border border-purple-200 dark:border-white/10 rounded-xl px-3 py-2 bg-purple-50 dark:bg-white/5 shadow-sm transition-all hover:scale-105 active:scale-95"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Help
+          </button>
         </div>
 
         {/* Form */}
@@ -324,6 +337,93 @@ const RegisterPage = () => {
           </Link>
         </p>
       </div>
+
+      {/* Help Modal */}
+      <AnimatePresence>
+        {showHelpModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-gray-100 dark:border-white/10 overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="px-8 py-6 border-b border-gray-100 dark:border-white/10 flex justify-between items-center bg-gray-50/50 dark:bg-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center shadow-inner">
+                    <HelpCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white tracking-tight">Need Assistance?</h3>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">Registration Help</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowHelpModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-all hover:scale-110 active:scale-90"
+                >
+                  <X className="w-5 h-5 text-gray-400 hover:text-gray-600 dark:hover:text-white" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-8 space-y-5 text-sm overflow-y-auto max-h-[70vh] custom-scrollbar">
+                <div className="space-y-4">
+                  {/* Step 1: Location */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100/50 dark:border-white/5 font-extrabold text-xs shadow-sm">
+                      1
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-gray-900 dark:text-white mb-1">Enable Location Access</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        Nearzo connects you to hyper-local stores. For a secure registration, please allow your browser's location access so we can fetch your GPS coordinates.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Password Policy */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100/50 dark:border-white/5 font-extrabold text-xs shadow-sm">
+                      2
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-gray-900 dark:text-white mb-1">Password Requirements</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        To keep your account secure, your password must be at least 6 characters long and must include at least one uppercase letter (A-Z) and one digit (0-9).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 3: OTP Verification */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-100/50 dark:border-white/5 font-extrabold text-xs shadow-sm">
+                      3
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-gray-900 dark:text-white mb-1">OTP Verification</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                        Upon submitting the registration form, a secure One-Time Password (OTP) will be instantly sent to your email address for account activation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 dark:border-white/5">
+                  <button
+                    onClick={() => setShowHelpModal(false)}
+                    className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:from-purple-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-purple-200 dark:shadow-none transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    Got It, Thanks!
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

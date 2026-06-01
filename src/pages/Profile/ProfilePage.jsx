@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   User, Mail, Phone, MapPin, Edit3, Camera,
   ShoppingBag, Heart, CreditCard, Settings, LogOut, ChevronRight,
-  Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2
+  Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2, Moon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
@@ -24,7 +24,7 @@ const getAvatarUrl = (avatar) => {
 }
 
 const ProfilePage = () => {
-  const { user, setUser, updateCoordinates, updateLocation } = useApp()
+  const { user, setUser, updateCoordinates, updateLocation, coordinates, isDarkMode, toggleDarkMode } = useApp()
   const navigate = useNavigate()
   const { tabId } = useParams()
   const tabQuery = tabId || 'personal'
@@ -73,6 +73,162 @@ const ProfilePage = () => {
   const [addresses, setAddresses] = useState([])
   const [editingAddressId, setEditingAddressId] = useState(null)
   const [showFormFields, setShowFormFields] = useState(false)
+  const [isMapOpen, setIsMapOpen] = useState(false)
+  const mapRef = useRef(null)
+  const leafletMapInstanceRef = useRef(null)
+  const markerInstanceRef = useRef(null)
+  const [mapSearchQuery, setMapSearchQuery] = useState('')
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+
+  const handleSearchLocation = async () => {
+    if (!mapSearchQuery.trim()) return
+    setIsSearchingLocation(true)
+    const toastId = toast.loading('Searching for location...')
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(mapSearchQuery)}&limit=1`)
+      const results = await response.json()
+      if (results && results.length > 0) {
+        const firstResult = results[0]
+        const lat = parseFloat(firstResult.lat)
+        const lon = parseFloat(firstResult.lon)
+
+        if (leafletMapInstanceRef.current && markerInstanceRef.current) {
+          leafletMapInstanceRef.current.setView([lat, lon], 15)
+          markerInstanceRef.current.setLatLng([lat, lon])
+        }
+
+        setNewAddress(firstResult.display_name)
+        
+        const reverseResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+        const reverseData = await reverseResponse.json()
+        
+        setAddressDetails({
+          city: reverseData.address?.city || reverseData.address?.town || reverseData.address?.county || '',
+          state: reverseData.address?.state || '',
+          pincode: reverseData.address?.postcode || '',
+          latitude: lat,
+          longitude: lon
+        })
+
+        updateCoordinates(lat, lon)
+        toast.success('Location found!', { id: toastId })
+      } else {
+        toast.error('Location not found. Please try a different query.', { id: toastId })
+      }
+    } catch (err) {
+      console.error('Failed to search location:', err)
+      toast.error('Failed to search location. Please try again.', { id: toastId })
+    } finally {
+      setIsSearchingLocation(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isMapOpen) {
+      if (leafletMapInstanceRef.current) {
+        leafletMapInstanceRef.current.remove()
+        leafletMapInstanceRef.current = null
+        markerInstanceRef.current = null
+      }
+      return
+    }
+
+    const loadLeafletAndInitMap = async () => {
+      if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link')
+        link.id = 'leaflet-css'
+        link.rel = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        document.head.appendChild(link)
+      }
+
+      if (!window.L) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script')
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+          script.onload = resolve
+          document.body.appendChild(script)
+        })
+      }
+
+      if (!mapRef.current) return
+
+      const defaultLat = addressDetails.latitude || coordinates?.latitude || 22.760287481529783
+      const defaultLng = addressDetails.longitude || coordinates?.longitude || 75.90990165620354
+
+      const L = window.L
+      
+      // Clear any existing map on the element before initializing
+      if (leafletMapInstanceRef.current) {
+        leafletMapInstanceRef.current.remove()
+      }
+
+      const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 15)
+      leafletMapInstanceRef.current = map
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map)
+
+      const DefaultIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      })
+      L.Marker.prototype.options.icon = DefaultIcon
+
+      const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map)
+      markerInstanceRef.current = marker
+
+      const handleLocationSelect = async (lat, lng) => {
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          const data = await response.json()
+          if (data && data.display_name) {
+            setNewAddress(data.display_name)
+            setAddressDetails({
+              city: data.address?.city || data.address?.town || data.address?.county || '',
+              state: data.address?.state || '',
+              pincode: data.address?.postcode || '',
+              latitude: lat,
+              longitude: lng
+            })
+            updateCoordinates(lat, lng)
+          }
+        } catch (err) {
+          console.error('Failed to reverse-geocode map position:', err)
+        }
+      }
+
+      marker.on('dragend', () => {
+        const position = marker.getLatLng()
+        handleLocationSelect(position.lat, position.lng)
+      })
+
+      map.on('click', (e) => {
+        const { lat, lng } = e.latlng
+        marker.setLatLng([lat, lng])
+        handleLocationSelect(lat, lng)
+      })
+
+      setTimeout(() => {
+        map.invalidateSize()
+      }, 200)
+    }
+
+    loadLeafletAndInitMap()
+
+    return () => {
+      if (leafletMapInstanceRef.current) {
+        leafletMapInstanceRef.current.remove()
+        leafletMapInstanceRef.current = null
+        markerInstanceRef.current = null
+      }
+    }
+  }, [isMapOpen])
 
   // Address Delete States
   const [addressToDelete, setAddressToDelete] = useState(null)
@@ -113,6 +269,8 @@ const ProfilePage = () => {
               latitude: latitude,
               longitude: longitude
             })
+            // Update active session coordinates in AppContext and sync to backend
+            updateCoordinates(latitude, longitude)
             setShowFormFields(true)
             toast.success('Location fetched successfully!', { id: toastId })
           }
@@ -805,7 +963,7 @@ const ProfilePage = () => {
                                   </div>
                                   <div>
                                     <h4 className="font-bold text-gray-900 dark:text-white">
-                                      {status.charAt(0).toUpperCase() + status.slice(1)} on {orderDate}
+                                      Order on {orderDate}
                                     </h4>
                                     <p className="text-xs text-gray-500">Order ID: {displayId}</p>
                                   </div>
@@ -831,13 +989,26 @@ const ProfilePage = () => {
                                   )
                                 })}
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex items-center justify-between mt-4">
                                 <button
                                   onClick={() => setSelectedOrderDetails(order)}
-                                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-bold rounded-lg transition-all shadow-sm"
+                                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm"
                                 >
                                   View Details
                                 </button>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${
+                                  status.toLowerCase() === 'delivered'
+                                    ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/20'
+                                    : status.toLowerCase() === 'cancelled'
+                                      ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'
+                                      : status.toLowerCase() === 'confirmed'
+                                        ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                                        : status.toLowerCase() === 'processing'
+                                          ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
+                                          : 'bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20'
+                                }`}>
+                                  {status}
+                                </span>
                               </div>
                             </div>
                           )
@@ -874,13 +1045,39 @@ const ProfilePage = () => {
                           </div>
                         </div>
                         <div
-                          onClick={() => {
-                            setPushEnabled(!pushEnabled)
-                            toast.success(pushEnabled ? 'Push notifications disabled' : 'Push notifications enabled')
+                          onClick={async () => {
+                            const newStatus = !pushEnabled
+                            setPushEnabled(newStatus)
+                            const toastId = toast.loading('Updating notification settings...')
+                            try {
+                              await authService.allowNotification(newStatus)
+                              toast.success(newStatus ? 'Push notifications enabled' : 'Push notifications disabled', { id: toastId })
+                            } catch (err) {
+                              setPushEnabled(!newStatus)
+                              toast.error('Failed to update notification settings', { id: toastId })
+                            }
                           }}
                           className={`w-12 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors duration-300 ${pushEnabled ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                         >
                           <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform duration-300 ${pushEnabled ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-500 shadow-sm">
+                            <Moon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 dark:text-white text-sm">Dark Theme</h4>
+                            <p className="text-xs text-gray-500">Toggle dark mode interface</p>
+                          </div>
+                        </div>
+                        <div
+                          onClick={toggleDarkMode}
+                          className={`w-12 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors duration-300 ${isDarkMode ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform duration-300 ${isDarkMode ? 'right-0.5' : 'left-0.5'}`}></div>
                         </div>
                       </div>
 
@@ -948,6 +1145,7 @@ const ProfilePage = () => {
                   onClick={() => {
                     setShowAddressModal(false)
                     setEditingAddressId(null)
+                    setIsMapOpen(false)
                   }}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
                 >
@@ -968,6 +1166,53 @@ const ProfilePage = () => {
                   )}
                   {isLocating ? 'Detecting Location...' : 'Use Current Location'}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMapOpen(!isMapOpen)
+                    setShowFormFields(true)
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-purple-50 hover:bg-purple-100 dark:bg-purple-600/10 dark:hover:bg-purple-600/20 text-purple-600 rounded-xl font-bold transition-colors shadow-sm"
+                >
+                  <MapPin className="w-5 h-5" />
+                  {isMapOpen ? 'Close Map' : 'Use Another Location (Select on Map)'}
+                </button>
+
+                {isMapOpen && (
+                  <div className="space-y-3 animate-in fade-in duration-300">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search for an address/area..."
+                        value={mapSearchQuery}
+                        onChange={(e) => setMapSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleSearchLocation()
+                          }
+                        }}
+                        className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchLocation}
+                        disabled={isSearchingLocation}
+                        className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                      >
+                        {isSearchingLocation ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          'Search'
+                        )}
+                      </button>
+                    </div>
+
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Drag marker or click on map to select location</label>
+                    <div ref={mapRef} className="w-full h-60 rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm" style={{ zIndex: 1 }} />
+                  </div>
+                )}
 
                 {!showFormFields && !editingAddressId ? null : (
                   <>

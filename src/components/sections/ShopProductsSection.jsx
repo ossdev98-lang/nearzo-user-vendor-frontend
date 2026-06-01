@@ -22,6 +22,8 @@ const ShopProductsSection = ({ selectedCategory, products, isShopClosed }) => {
         ))}
       </div>
 
+
+
       {items.length === 0 && (
         <div className="text-center py-16">
           <p className="text-gray-500 dark:text-gray-400 text-lg">No products found in this category.</p>

@@ -66,11 +66,11 @@ export default function CategoryPills({ selected, onSelect }) {
 
   if (loading) {
     return (
-      <div className="w-full border-b border-gray-100 bg-white py-4 flex items-center justify-center">
+      <div className="w-full border-b border-gray-100 dark:border-white/5 bg-white dark:bg-gray-900 py-4 flex items-center justify-center">
         <div className="animate-pulse flex space-x-4">
-          <div className="rounded-full bg-gray-200 h-10 w-10"></div>
+          <div className="rounded-full bg-gray-200 dark:bg-gray-800 h-10 w-10"></div>
           <div className="flex-1 space-y-6 py-1">
-            <div className="h-2 bg-gray-200 rounded w-24"></div>
+            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
           </div>
         </div>
       </div>
@@ -78,12 +78,12 @@ export default function CategoryPills({ selected, onSelect }) {
   }
 
   return (
-    <div id="categories" className="w-full border-b border-gray-100 bg-white">
+    <div id="categories" className="w-full border-b border-gray-100 dark:border-white/5 bg-white dark:bg-gray-900 transition-colors duration-300">
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4 py-3">
           {/* Left GIF */}
           <div className="hidden xl:flex w-20 xl:w-24 flex-shrink-0 items-center justify-center">
-            <img src={groceryGif} alt="Grocery Delivery" className="w-full h-auto drop-shadow-sm" />
+            <img src={groceryGif} alt="Grocery Delivery" className="w-full h-auto drop-shadow-sm filter dark:brightness-95" />
           </div>
 
           {/* Categories */}
@@ -94,9 +94,13 @@ export default function CategoryPills({ selected, onSelect }) {
                 <button
                   key={c.name}
                   onClick={() => onSelect && onSelect(c.name === 'All' ? null : c.name)}
-                  className={`flex-shrink-0 flex flex-col items-center gap-2 w-[calc((100%-48px)/4)] sm:w-[calc((100%-80px)/6)] md:w-[calc((100%-112px)/8)] lg:w-[calc((100%-128px)/9)] px-2 py-1 transition-all duration-200 ${active ? 'bg-white shadow-md ring-2 ring-primary/25' : 'bg-white/90'} rounded-xl`}
+                  className={`flex-shrink-0 flex flex-col items-center gap-2 w-[calc((100%-48px)/4)] sm:w-[calc((100%-80px)/6)] md:w-[calc((100%-112px)/8)] lg:w-[calc((100%-128px)/9)] px-2 py-1 transition-all duration-200 ${
+                    active 
+                      ? 'bg-white dark:bg-gray-800 shadow-md ring-2 ring-purple-600/30' 
+                      : 'bg-white/90 dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10'
+                  } rounded-xl`}
                 >
-                  <div className={`w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center shrink-0 ${active ? 'ring-2 ring-primary/30' : ''}`}>
+                  <div className={`w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center shrink-0 ${active ? 'ring-2 ring-purple-600/30' : ''}`}>
                     <img 
                       src={c.image || dummyProduct} 
                       alt={c.name} 
@@ -108,7 +112,7 @@ export default function CategoryPills({ selected, onSelect }) {
                       }}
                     />
                   </div>
-                  <div className={`text-xs font-medium mt-1 ${active ? 'text-primary' : 'text-gray-700'}`}>{c.name}</div>
+                  <div className={`text-xs font-bold mt-1 ${active ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'}`}>{c.name}</div>
                 </button>
               )
             })}
@@ -116,7 +120,7 @@ export default function CategoryPills({ selected, onSelect }) {
 
           {/* Right GIF */}
           <div className="hidden xl:flex w-20 xl:w-24 flex-shrink-0 items-center justify-center">
-            <img src={groceryGif} alt="Grocery Delivery" className="w-full h-auto drop-shadow-sm transform -scale-x-100" />
+            <img src={groceryGif} alt="Grocery Delivery" className="w-full h-auto drop-shadow-sm transform -scale-x-100 filter dark:brightness-95" />
           </div>
         </div>
       </div>

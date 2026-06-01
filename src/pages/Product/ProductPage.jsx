@@ -21,6 +21,7 @@ const ProductPage = () => {
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [variantError, setVariantError] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
+  const [isBuyingNow, setIsBuyingNow] = useState(false)
   const [activeImage, setActiveImage] = useState('')
   const [relatedProducts, setRelatedProducts] = useState([])
 
@@ -538,19 +539,39 @@ const ProductPage = () => {
                         return
                       }
                       const option = activeOption || variants[0]
-                      if (!isInCart) {
-                        const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id });
-                        if (!success) return;
+                      setIsBuyingNow(true)
+                      try {
+                        if (!isInCart) {
+                          const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id });
+                          if (!success) {
+                            setIsBuyingNow(false)
+                            return;
+                          }
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, 500))
+                        navigate('/checkout');
+                      } catch (err) {
+                        toast.error('Failed to proceed with Buy Now')
+                      } finally {
+                        setIsBuyingNow(false)
                       }
-                      navigate('/checkout');
                     }}
-                    disabled={isDifferentShop}
-                    className={`flex-grow h-12 flex items-center justify-center rounded-xl font-bold text-base transition-all border-2 ${isDifferentShop
+                    disabled={isBuyingNow || isDifferentShop}
+                    className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all border-2 ${isDifferentShop
                       ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-transparent'
-                      : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
+                      : isBuyingNow
+                        ? 'opacity-85 cursor-not-allowed border-[#6C4CF1] bg-[#6C4CF1]/10 text-[#6C4CF1] hover:-translate-y-0.5'
+                        : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
                       }`}
                   >
-                    Buy Now
+                    {isBuyingNow ? (
+                      <>
+                        <div className="w-5 h-5 rounded-full border-t-2 border-r-2 border-[#6C4CF1] animate-spin mr-1"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      'Buy Now'
+                    )}
                   </button>
                 </div>
               </div>

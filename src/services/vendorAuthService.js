@@ -1,9 +1,11 @@
 import API from './api'
+import { requestForToken } from './firebase'
 
 export const vendorAuthService = {
   login: async (credentials) => {
     try {
-      const response = await API.post('/vendor/auth/login', credentials)
+      const fcmToken = await requestForToken()
+      const response = await API.post('/vendor/auth/login', { ...credentials, fcmToken })
       const data = response.data
       
       // Always set role to vendor on successful login
@@ -25,8 +27,19 @@ export const vendorAuthService = {
 
   register: async (vendorData) => {
     try {
+      const fcmToken = await requestForToken()
+      
+      let payload = vendorData
+      if (payload instanceof FormData) {
+        if (!payload.has('fcmToken')) {
+          payload.append('fcmToken', fcmToken)
+        }
+      } else if (typeof payload === 'object') {
+        payload = { ...vendorData, fcmToken }
+      }
+
       // For registration, vendorData should ideally be FormData because of images (aadharFront, aadharBack, shopRegisterImage)
-      const response = await API.post('/vendors/onboard', vendorData, {
+      const response = await API.post('/vendors/onboard', payload, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

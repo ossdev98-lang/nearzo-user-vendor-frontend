@@ -25,7 +25,13 @@ export const AppProvider = ({ children }) => {
     }
   })
   const [searchQuery, setSearchQuery] = useState('')
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem('theme') === 'dark'
+    } catch {
+      return false
+    }
+  })
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [cartDeliveryDetails, setCartDeliveryDetails] = useState(null)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
@@ -74,6 +80,21 @@ export const AppProvider = ({ children }) => {
 
     return () => clearTimeout(timer)
   }, [coordinates])
+
+  // Synchronize dark/light mode with DOM documentElement and localStorage
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', 'light')
+      }
+    } catch (e) {
+      console.error('Failed to update theme in DOM:', e)
+    }
+  }, [isDarkMode])
 
   // Synchronize cart with localStorage whenever it changes (only for guest users)
   useEffect(() => {
