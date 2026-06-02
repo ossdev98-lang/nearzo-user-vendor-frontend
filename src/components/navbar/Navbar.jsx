@@ -22,6 +22,7 @@ import dummyProduct from '../../assets/images/dummyProduct.jpg'
 import dummyBanner from '../../assets/images/dummy-banner.jpg'
 import { authService } from '../../services/authService'
 import { searchService } from '../../services/searchService'
+import API from '../../services/api'
 
 const getAvatarUrl = (avatar) => {
   if (!avatar) return dummyUserImage;
@@ -48,41 +49,85 @@ const Navbar = () => {
   const [showSuggestions, setShowSuggestions] = useState(false)
   
   const [showNotifications, setShowNotifications] = useState(false)
-  const [notificationsList, setNotificationsList] = useState([
-    {
-      id: 1,
-      type: 'order',
-      title: 'Order Confirmed',
-      body: 'Your order #NZ-8395 has been successfully confirmed by the vendor!',
-      time: '10 mins ago',
-      unread: true
-    },
-    {
-      id: 2,
-      type: 'order',
-      title: 'Order Dispatched',
-      body: 'Great news! Your recent order #NZ-5498 has been dispatched and is on its way.',
-      time: '2 hours ago',
-      unread: true
-    },
-    {
-      id: 3,
-      type: 'promo',
-      title: 'Weekend Special Offer',
-      body: 'Exclusive: Get 20% off on fresh organic fruits this weekend! Use code FRUIT20.',
-      time: '1 day ago',
-      unread: false
+  const [notificationsList, setNotificationsList] = useState([])
+
+  const fetchNotifications = async () => {
+    const isLoggedIn = !!localStorage.getItem('token') || !!localStorage.getItem('user')
+    if (!isLoggedIn) {
+      setNotificationsList([])
+      return
     }
-  ])
+    try {
+      const response = await API.get('/user/notifications')
+      const data = response.data
+      
+      let rawList = []
+      if (Array.isArray(data)) {
+        rawList = data
+      } else if (data && Array.isArray(data.notifications)) {
+        rawList = data.notifications
+      } else if (data && Array.isArray(data.data)) {
+        rawList = data.data
+      }
+
+      const formatTimeAgo = (dateString) => {
+        if (!dateString) return 'Just now'
+        try {
+          const now = new Date()
+          const date = new Date(dateString)
+          const diffMs = now - date
+          if (isNaN(diffMs)) return dateString
+          const diffMins = Math.floor(diffMs / 60000)
+          if (diffMins < 1) return 'Just now'
+          if (diffMins < 60) return `${diffMins} mins ago`
+          const diffHours = Math.floor(diffMins / 60)
+          if (diffHours < 24) return `${diffHours} hours ago`
+          const diffDays = Math.floor(diffHours / 24)
+          return `${diffDays} days ago`
+        } catch (e) {
+          return dateString || 'Just now'
+        }
+      }
+
+      const mapped = rawList.map((item, idx) => ({
+        id: item.id || item._id || idx,
+        type: item.type || 'system',
+        title: item.title || 'Nearzo Update',
+        body: item.body || item.message || item.text || 'New notification',
+        time: formatTimeAgo(item.createdAt || item.time || item.date),
+        unread: item.unread !== undefined ? item.unread : (item.read !== undefined ? !item.read : (item.isRead !== undefined ? !item.isRead : true))
+      }))
+      
+      setNotificationsList(mapped)
+    } catch (error) {
+      console.error('Failed to fetch user notifications:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 20000) // refresh every 20 seconds
+    return () => clearInterval(interval)
+  }, [user])
 
   const unreadCount = notificationsList.filter(n => n.unread).length
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
     setNotificationsList(prev => prev.map(n => ({ ...n, unread: false })))
+    try {
+      await API.put('/user/notifications/read-all')
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err)
+    }
   }
 
-  const handleNotificationClick = (id) => {
+  const handleNotificationClick = async (id) => {
     setNotificationsList(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n))
+    try {
+      await API.put(`/user/notifications/${id}/read`)
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err)
+    }
   }
 
   useEffect(() => {

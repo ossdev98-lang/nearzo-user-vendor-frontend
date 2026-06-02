@@ -27,6 +27,9 @@ import VendorVerifyOTPPage from './pages/Login/VendorVerifyOTPPage'
 import VendorForgotPasswordPage from './pages/Login/VendorForgotPasswordPage'
 import VendorResetPasswordPage from './pages/Login/VendorResetPasswordPage'
 import VendorDashboard from './pages/Vendor/VendorDashboard'
+import VendorOrders from './pages/Vendor/VendorOrders'
+import VendorProducts from './pages/Vendor/VendorProducts'
+import VendorSettings from './pages/Vendor/VendorSettings'
 import { onMessageListener } from './services/firebase'
 import { toast } from 'react-hot-toast'
 
@@ -301,13 +304,43 @@ const App = () => {
             <Route path="/vendor/reset-password" element={<motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.5 }}><VendorResetPasswordPage /></motion.div>} />
           </Route>
 
-          {/* Vendor Dashboard - Outside of MainLayout/AuthLayout */}
+          {/* Vendor Dashboard & Specific Protected Route Modules */}
           <Route
             path="/vendor/dashboard"
             element={
               <VendorProtectedRoute>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   <VendorDashboard />
+                </motion.div>
+              </VendorProtectedRoute>
+            }
+          />
+          <Route
+            path="/vendor/orders"
+            element={
+              <VendorProtectedRoute>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <VendorOrders />
+                </motion.div>
+              </VendorProtectedRoute>
+            }
+          />
+          <Route
+            path="/vendor/products"
+            element={
+              <VendorProtectedRoute>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <VendorProducts />
+                </motion.div>
+              </VendorProtectedRoute>
+            }
+          />
+          <Route
+            path="/vendor/settings"
+            element={
+              <VendorProtectedRoute>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <VendorSettings />
                 </motion.div>
               </VendorProtectedRoute>
             }

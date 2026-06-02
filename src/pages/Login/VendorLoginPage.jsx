@@ -43,7 +43,7 @@ const VendorLoginPage = () => {
       const vendorUser = data.vendor || data.user || data.data || { shopName: 'Partner' }
       setUser(vendorUser)
 
-      // navigate('/vendor/dashboard')
+      navigate('/vendor/dashboard')
     } catch (error) {
       const errorMsg = error.message?.toLowerCase() || ''
       if (errorMsg.includes('verify') || errorMsg.includes('verified') || error.status === 403) {

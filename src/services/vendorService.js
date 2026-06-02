@@ -5,7 +5,7 @@ export const vendorService = {
     const params = { latitude, longitude, sortBy }
     if (shopCategoryId) params.shopCategoryId = shopCategoryId
     if (isTopRated) params.isTopRated = true
-    
+
     const response = await API.get('/vendors/nearby', { params })
     return response.data
   },
