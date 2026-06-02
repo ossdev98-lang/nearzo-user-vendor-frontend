@@ -217,7 +217,9 @@ export const AppProvider = ({ children }) => {
       try {
         const payload = {
           vendorProductId: itemToAdd.id,
-          quantity: itemToAdd.quantity || 1
+          quantity: itemToAdd.quantity || 1,
+          latitude: coordinates?.latitude || parseFloat(localStorage.getItem('user_latitude')) || 22.760287481529783,
+          longitude: coordinates?.longitude || parseFloat(localStorage.getItem('user_longitude')) || 75.90990165620354
         }
         const varId = itemToAdd.variantId
         if (varId && varId !== 'base' && String(varId) !== String(itemToAdd.id)) {
@@ -228,7 +230,20 @@ export const AppProvider = ({ children }) => {
         return true
       } catch (err) {
         console.error('Failed to add to cart backend:', err)
-        return false
+        const apiError = err.response?.data
+        if (apiError && apiError.success === false) {
+          const mainMessage = apiError.message || 'Vendor not available'
+          const deliveryDetails = apiError.delivery
+          let detailedMessage = mainMessage
+          if (deliveryDetails && deliveryDetails.error) {
+            const distanceStr = deliveryDetails.distanceKm ? ` (${deliveryDetails.distanceKm} km)` : ''
+            detailedMessage = `${mainMessage}: ${deliveryDetails.error}${distanceStr}`
+          }
+          toast.error(detailedMessage, { id: 'add-to-cart-error' })
+          throw apiError
+        }
+        toast.error('Failed to add to cart. Server error.')
+        throw err
       }
     }
 

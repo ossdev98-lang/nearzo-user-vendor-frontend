@@ -499,7 +499,7 @@ const ProductPage = () => {
                           toast.success('Added to Cart successfully!')
                         }
                       } catch (err) {
-                        toast.error('Failed to add to cart')
+                        // Toast error already handled gracefully by AppContext.jsx's addToCart
                       } finally {
                         setIsAdding(false)
                       }
@@ -551,7 +551,7 @@ const ProductPage = () => {
                         await new Promise((resolve) => setTimeout(resolve, 500))
                         navigate('/checkout');
                       } catch (err) {
-                        toast.error('Failed to proceed with Buy Now')
+                        // Toast error already handled gracefully by AppContext.jsx's addToCart
                       } finally {
                         setIsBuyingNow(false)
                       }
