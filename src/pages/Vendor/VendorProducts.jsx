@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
+  ChevronLeft,
+  ChevronRight,
   Package,
   Plus,
   Search,
@@ -16,13 +18,16 @@ import {
   ShoppingBag,
   Settings,
   LogOut,
-  Store
+  Store,
+  PlusCircle,
+  Sparkles
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useNavigate, Link } from 'react-router-dom'
 import logo from '../../assets/nearzo-logo.png'
 import { vendorService } from '../../services/vendorService'
 import { vendorAuthService } from '../../services/vendorAuthService'
+import VendorNotificationBell from '../../components/vendor/VendorNotificationBell'
 import toast from 'react-hot-toast'
 
 const VendorProducts = () => {
@@ -37,9 +42,13 @@ const VendorProducts = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 8
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState('add') // 'add' or 'edit'
   const [editingProduct, setEditingProduct] = useState(null)
+  const [showAddDropdown, setShowAddDropdown] = useState(false)
+  const [editableVariants, setEditableVariants] = useState([])
 
   // Form Fields State
   const [prodName, setProdName] = useState('')
@@ -51,7 +60,21 @@ const VendorProducts = () => {
   const fetchProducts = async () => {
     try {
       const data = await vendorService.getProducts()
-      setProducts(data || [])
+      if (data) {
+        if (Array.isArray(data)) {
+          setProducts(data)
+        } else if (data.vendorProducts && Array.isArray(data.vendorProducts)) {
+          setProducts(data.vendorProducts)
+        } else if (data.products && Array.isArray(data.products)) {
+          setProducts(data.products)
+        } else if (data.data && Array.isArray(data.data)) {
+          setProducts(data.data)
+        } else {
+          setProducts([])
+        }
+      } else {
+        setProducts([])
+      }
     } catch (err) {
       toast.error('Failed to load products')
     } finally {
@@ -84,42 +107,98 @@ const VendorProducts = () => {
   const handleOpenEditModal = (product) => {
     setModalMode('edit')
     setEditingProduct(product)
-    setProdName(product.name)
-    setProdCategory(product.category)
-    setProdPrice(product.price.replace('₹', ''))
-    setProdStock(product.stock.toString())
+    
+    const cleanPriceValue = (val) => {
+      if (val === undefined || val === null) return 0
+      if (typeof val === 'string') {
+        return Number(val.replace(/[^0-9.]/g, '')) || 0
+      }
+      return Number(val) || 0
+    }
+
+    const initialVariants = (product.variants && product.variants.length > 0)
+      ? product.variants.map(v => ({
+          variantId: v.variantId || v.id,
+          name: v.name || 'Default Variant',
+          price: cleanPriceValue(v.price),
+          discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+          isAvailable: v.isAvailable !== false
+        }))
+      : [{
+          variantId: 'v-default',
+          name: 'Regular',
+          price: cleanPriceValue(product.Product?.price || product.price),
+          discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
+          isAvailable: product.isAvailable !== false && product.stock !== 0
+        }]
+
+    setEditableVariants(initialVariants)
     setIsModalOpen(true)
   }
 
   // Handle Form Submission for Add or Edit
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!prodName || !prodPrice || !prodStock) {
-      toast.error('Please fill all mandatory fields')
-      return
-    }
 
-    const payload = {
-      name: prodName,
-      category: prodCategory,
-      price: `₹${prodPrice}`,
-      stock: parseInt(prodStock)
-    }
-
-    try {
-      if (modalMode === 'add') {
-        const response = await vendorService.addProduct(payload)
-        const newProduct = response.product || { id: Date.now().toString(), ...payload }
-        setProducts(prev => [newProduct, ...prev])
-        toast.success('Product added successfully!')
-      } else {
-        await vendorService.updateProduct(editingProduct.id, payload)
-        setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...payload } : p))
-        toast.success('Product updated successfully!')
+    const hasActualVariants = editingProduct?.variants && editingProduct.variants.length > 0
+    
+    let payload = {}
+    if (hasActualVariants) {
+      payload = {
+        variants: editableVariants.map(v => ({
+          variantId: v.variantId,
+          discountPrice: Number(v.discountPrice),
+          isAvailable: v.isAvailable
+        }))
       }
+    } else {
+      const mainVariant = editableVariants[0] || {}
+      payload = {
+        discountPrice: Number(mainVariant.discountPrice),
+        isAvailable: mainVariant.isAvailable,
+        stock: mainVariant.isAvailable ? 100 : 0
+      }
+    }
+
+    const loadToast = toast.loading('Saving changes...')
+    try {
+      await vendorService.updateProduct(editingProduct.id, payload)
+      toast.success(`${editingProduct.Product?.name || editingProduct.name || 'Product'} updated successfully!`, { id: loadToast })
+      
+      // Update local state products list
+      setProducts(prev => prev.map(p => {
+        if (p.id === editingProduct.id) {
+          if (hasActualVariants) {
+            const updatedVariants = p.variants.map(pv => {
+              const matched = editableVariants.find(ev => ev.variantId === pv.variantId)
+              if (matched) {
+                return {
+                  ...pv,
+                  discountPrice: Number(matched.discountPrice),
+                  isAvailable: matched.isAvailable
+                }
+              }
+              return pv
+            })
+            return { ...p, variants: updatedVariants }
+          } else {
+            return {
+              ...p,
+              discountPrice: Number(payload.discountPrice),
+              stock: payload.stock
+            }
+          }
+        }
+        return p
+      }))
+      
       setIsModalOpen(false)
+      setEditingProduct(null)
+      setEditableVariants([])
     } catch (err) {
-      toast.error('Operation failed')
+      console.error(err)
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to save changes.'
+      toast.error(errMsg, { id: loadToast })
     }
   }
 
@@ -135,15 +214,42 @@ const VendorProducts = () => {
     }
   }
 
-  // Categories list
-  const categoriesList = ['all', 'Fruits', 'Vegetables', 'Dairy', 'Bakery']
+  // Helper to resolve product image from server
+  const getProductImage = (prod) => {
+    const imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
+    if (!imgPath) return null;
+    if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://instamart-server.vercel.app/api';
+    const domain = apiBase.replace('/api', '');
+    return `${domain}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
+  }
 
-  // Filter products based on search & category
+  // Filter products based on search query matching name or category, and selected tab category
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || product.category.toLowerCase() === selectedCategory.toLowerCase()
+    const name = (product.Product?.name || product.name || '').toLowerCase()
+    const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
+    const query = searchQuery.toLowerCase()
+    
+    const matchesSearch = name.includes(query) || category.includes(query)
+    const matchesCategory = selectedCategory === 'all' || category === selectedCategory.toLowerCase()
+    
     return matchesSearch && matchesCategory
   })
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedCategory, searchQuery])
+
+  // Generate unique categories dynamically from catalog
+  const uniqueCategories = ['all', ...new Set(products.map(p => {
+    const cat = p.Product?.categoryName || p.category || 'General'
+    return cat.trim()
+  }).filter(Boolean))]
 
   const navLinks = [
     { label: 'Dashboard', path: '/vendor/dashboard', icon: <TrendingUp className="w-5 h-5" /> },
@@ -154,96 +260,137 @@ const VendorProducts = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-950 flex flex-col md:flex-row text-gray-800 dark:text-gray-100 font-sans">
-      
+
       {/* 1. Mobile Header */}
       <header className="md:hidden w-full h-16 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 shrink-0 z-30 sticky top-0">
-        <button 
+        <button
           onClick={() => setIsMobileSidebarOpen(true)}
           className="w-10 h-10 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center transition-colors border-none bg-transparent"
         >
           <Menu className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
         <span className="font-extrabold text-base tracking-tight text-purple-650">Store Products</span>
-        <button className="w-10 h-10 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center transition-colors relative border-none bg-transparent">
-          <Bell className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-        </button>
+        <VendorNotificationBell />
       </header>
 
-      {/* 2. Sidebar for Desktop & Mobile Overlay Drawer */}
-      <AnimatePresence>
-        {(isMobileSidebarOpen || true) && (
-          <motion.aside
-            className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-50 flex flex-col shrink-0 
-              ${isMobileSidebarOpen ? 'block' : 'hidden md:flex'}`}
-            initial={isMobileSidebarOpen ? { x: -260 } : false}
-            animate={{ x: 0 }}
-            exit={{ x: -260 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      {/* 2a. Desktop Sidebar (Static & Robust) */}
+      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-105 dark:border-gray-800 h-screen sticky top-0 shrink-0 z-35">
+        {/* Logo */}
+        <div className="p-6 pb-6 flex items-center justify-between border-b border-gray-50 dark:border-gray-800">
+          <Link to="/" className="inline-block hover:scale-105 transition-transform">
+            <img src={logo} alt="Nearzo Logo" className="h-12 object-contain dark:filter dark:invert" />
+          </Link>
+        </div>
+
+        {/* Sidebar Navigation */}
+        <nav className="p-4 space-y-1.5 flex-1">
+          {navLinks.map((link, idx) => (
+            <Link
+              key={idx}
+              to={link.path}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-sm
+                ${link.active
+                  ? 'bg-purple-50 dark:bg-purple-900/10 text-purple-650'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
+            >
+              {link.icon} <span>{link.label}</span>
+            </Link>
+          ))}
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 w-full text-red-650 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-xl font-bold transition-all text-left mt-4 border-none bg-transparent cursor-pointer text-sm"
           >
-            {/* Logo & Close drawer for Mobile */}
-            <div className="p-6 pb-6 flex items-center justify-between border-b border-gray-50 dark:border-gray-800">
-              <Link to="/" className="inline-block hover:scale-105 transition-transform mx-auto md:mx-0">
-                <img src={logo} alt="Nearzo Logo" className="h-12 object-contain dark:filter dark:invert" />
-              </Link>
-              <button
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="md:hidden w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center border-none bg-transparent cursor-pointer"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
+            <LogOut className="w-5 h-5" /> <span>Logout</span>
+          </button>
+        </nav>
+
+        {/* Bottom User Info Block */}
+        <div className="p-4 border-t border-gray-50 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-950/20">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-950/30 rounded-xl flex items-center justify-center shrink-0">
+              <Store className="w-5 h-5 text-purple-600" />
             </div>
+            <div className="min-w-0">
+              <h2 className="font-extrabold text-gray-900 dark:text-white line-clamp-1 text-sm">{user?.shopName || 'Sharma General Store'}</h2>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vendor Dashboard</p>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-            {/* Sidebar Navigation */}
-            <nav className="p-4 space-y-1 flex-1">
-              {navLinks.map((link, idx) => (
-                <Link
-                  key={idx}
-                  to={link.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-sm
-                    ${link.active
-                      ? 'bg-purple-50 dark:bg-purple-900/10 text-purple-600'
-                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
-                >
-                  {link.icon} <span>{link.label}</span>
+      {/* 2b. Mobile Sidebar Drawer */}
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <div 
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45 md:hidden"
+            />
+            <motion.aside
+              className="fixed top-0 left-0 h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-105 dark:border-gray-800 z-50 flex flex-col shrink-0 md:hidden"
+              initial={{ x: -260 }}
+              animate={{ x: 0 }}
+              exit={{ x: -260 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            >
+              {/* Logo & Close drawer for Mobile */}
+              <div className="p-6 pb-6 flex items-center justify-between border-b border-gray-50 dark:border-gray-800">
+                <Link to="/" className="inline-block hover:scale-105 transition-transform mx-auto">
+                  <img src={logo} alt="Nearzo Logo" className="h-12 object-contain dark:filter dark:invert" />
                 </Link>
-              ))}
+                <button
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
 
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-xl font-bold transition-all text-left mt-4 border-none bg-transparent cursor-pointer text-sm"
-              >
-                <LogOut className="w-5 h-5" /> <span>Logout</span>
-              </button>
-            </nav>
+              {/* Sidebar Navigation */}
+              <nav className="p-4 space-y-1.5 flex-1">
+                {navLinks.map((link, idx) => (
+                  <Link
+                    key={idx}
+                    to={link.path}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-sm
+                      ${link.active
+                        ? 'bg-purple-50 dark:bg-purple-900/10 text-purple-650'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}
+                  >
+                    {link.icon} <span>{link.label}</span>
+                  </Link>
+                ))}
 
-            {/* Bottom User Info Block */}
-            <div className="p-4 border-t border-gray-50 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-950/20">
-              <div className="flex items-center gap-3 px-2 py-2">
-                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-950/30 rounded-xl flex items-center justify-center shrink-0">
-                  <Store className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="font-extrabold text-gray-900 dark:text-white line-clamp-1 text-sm">{user?.shopName || 'Sharma General Store'}</h2>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vendor Dashboard</p>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 px-4 py-3 w-full text-red-650 hover:bg-red-50 dark:hover:bg-red-950/10 rounded-xl font-bold transition-all text-left mt-4 border-none bg-transparent cursor-pointer text-sm"
+                >
+                  <LogOut className="w-5 h-5" /> <span>Logout</span>
+                </button>
+              </nav>
+
+              {/* Bottom User Info Block */}
+              <div className="p-4 border-t border-gray-50 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-950/20">
+                <div className="flex items-center gap-3 px-2 py-2">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-950/30 rounded-xl flex items-center justify-center shrink-0">
+                    <Store className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-extrabold text-gray-900 dark:text-white line-clamp-1 text-sm">{user?.shopName || 'Sharma General Store'}</h2>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vendor Dashboard</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </motion.aside>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
 
-      {/* Mobile Drawer Overlay Backdrop */}
-      {isMobileSidebarOpen && (
-        <div 
-          onClick={() => setIsMobileSidebarOpen(false)}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
-        />
-      )}
-
       {/* 3. Main content */}
-      <main className="flex-1 p-6 md:p-10 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
-        
+      <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 space-y-6 md:space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+
         {/* Header Summary */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-6">
           <div className="space-y-1">
@@ -253,12 +400,9 @@ const VendorProducts = () => {
 
           {/* Desktop Right Hand Toolbar actions */}
           <div className="hidden sm:flex items-center gap-3">
-            <button className="w-11 h-11 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center transition-colors relative shadow-sm cursor-pointer border-none bg-transparent">
-              <Bell className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
-            </button>
+            <VendorNotificationBell />
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl hover:bg-gray-50 shadow-sm transition-all cursor-pointer border-none"
               >
@@ -268,16 +412,16 @@ const VendorProducts = () => {
                 <span className="text-xs font-bold truncate max-w-[120px]">{user?.shopName || 'Partner'}</span>
                 <ChevronDown className="w-3 h-3 text-gray-400" />
               </button>
-              
+
               <AnimatePresence>
                 {showProfileDropdown && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-750 rounded-2xl shadow-xl p-2 z-50"
                   >
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 rounded-xl transition-colors font-bold text-xs uppercase tracking-wider text-left border-none bg-transparent cursor-pointer"
                     >
@@ -290,45 +434,63 @@ const VendorProducts = () => {
           </div>
         </div>
 
-        {/* Dynamic Category Filter Pills */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-            {categoriesList.map((cat, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4.5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border shrink-0 cursor-pointer
-                  ${selectedCategory === cat 
-                    ? 'bg-[#6C4CF1] text-white border-[#6C4CF1] shadow-md shadow-purple-650/10' 
-                    : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-400 dark:text-gray-500'}`}
-              >
-                {cat === 'all' ? 'All Products' : cat}
-              </button>
-            ))}
+        {/* CSS rule to hide horizontal scrollbar for categories tabs */}
+        <style>{`
+          .scrollbar-none::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
+
+        {/* Search & Actions Bar (Clean unified layout with category tabs) */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex-1 w-full flex items-center bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-4 rounded-3xl shadow-sm relative">
+              <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search catalog products by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-855 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-855 dark:text-white"
+              />
+            </div>
+            
+            <button
+              onClick={() => navigate('/vendor/master-products')}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer shrink-0"
+            >
+              <Plus className="w-4.5 h-4.5" /> Add New Product
+            </button>
           </div>
 
-          <button 
-            onClick={handleOpenAddModal}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Add New Product
-          </button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="flex items-center bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-4 rounded-3xl shadow-sm relative">
-          <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search catalog products by name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-855 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-855 dark:text-white"
-          />
+          {/* Dynamic Category Tabs */}
+          {uniqueCategories.length > 1 && (
+            <div 
+              className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none" 
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {uniqueCategories.map((cat) => {
+                const isActive = selectedCategory.toLowerCase() === cat.toLowerCase()
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-5 py-2.5 rounded-2xl text-xs font-black capitalize transition-all border-none cursor-pointer shrink-0
+                      ${isActive 
+                        ? 'bg-[#6C4CF1] text-white shadow-md shadow-purple-550/20' 
+                        : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-850'
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Catalog list container */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[32px] p-6 shadow-sm min-h-[300px]">
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[24px] sm:rounded-[32px] p-4 sm:p-6 shadow-sm min-h-[300px]">
           {loading ? (
             <div className="py-24 text-center">
               <div className="w-10 h-10 border-4 border-purple-650/30 border-t-purple-650 rounded-full animate-spin mx-auto mb-4" />
@@ -343,48 +505,139 @@ const VendorProducts = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((prod) => (
-                <div 
-                  key={prod.id}
-                  className="bg-gray-50/30 dark:bg-gray-850/10 border border-gray-100 dark:border-gray-800 rounded-3xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
-                >
-                  <div className="space-y-4">
-                    {/* Placeholder image representation */}
-                    <div className="aspect-square w-full rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative">
-                      <Package className="w-10 h-10 text-[#6C4CF1] opacity-70" />
-                      <span className="absolute top-3 left-3 bg-white/90 dark:bg-gray-800/90 text-purple-600 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
-                        {prod.category}
-                      </span>
-                    </div>
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {paginatedProducts.map((prod) => {
+                  const imgUrl = getProductImage(prod)
+                  const name = prod.Product?.name || prod.name || 'Unnamed Product'
+                  const category = prod.Product?.categoryName || prod.category || 'General'
 
-                    <div className="space-y-1">
-                      <h4 className="font-extrabold text-sm text-gray-950 dark:text-white line-clamp-1">{prod.name}</h4>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-black text-gray-900 dark:text-white">{prod.price}</span>
-                        <span className="text-[10px] font-bold text-green-500">
-                          {prod.stock} In Stock
-                        </span>
+                  // Calculate variant metadata
+                  const hasVariants = prod.variants && prod.variants.length > 0
+                  let priceDisplay = ''
+                  let originalPriceDisplay = ''
+                  let totalStock = 0
+                  let variantCount = 0
+
+                  if (hasVariants) {
+                    variantCount = prod.variants.length
+                    totalStock = prod.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+                    
+                    const discountPrices = prod.variants.map(v => v.discountPrice !== null && v.discountPrice !== undefined ? v.discountPrice : v.price)
+                    const originalPrices = prod.variants.map(v => v.price)
+                    
+                    const minDisc = Math.min(...discountPrices)
+                    const maxDisc = Math.max(...discountPrices)
+                    priceDisplay = minDisc === maxDisc ? `₹${minDisc}` : `₹${minDisc} - ₹${maxDisc}`
+                    
+                    const minOrig = Math.min(...originalPrices)
+                    const maxOrig = Math.max(...originalPrices)
+                    originalPriceDisplay = minOrig === maxOrig ? `₹${minOrig}` : `₹${minOrig} - ₹${maxOrig}`
+                  } else {
+                    const origPrice = prod.price || prod.Product?.price || 0
+                    const cleanPrice = typeof origPrice === 'string' ? Number(origPrice.replace(/[^0-9.]/g, '')) || 0 : Number(origPrice)
+                    
+                    const discPrice = prod.discountPrice !== null && prod.discountPrice !== undefined ? prod.discountPrice : cleanPrice
+                    
+                    priceDisplay = `₹${discPrice}`
+                    originalPriceDisplay = `₹${cleanPrice}`
+                    totalStock = prod.stock || 0
+                  }
+
+                  return (
+                    <div
+                      key={prod.id}
+                      className="bg-gray-50/30 dark:bg-gray-850/10 border border-gray-100 dark:border-gray-800 rounded-3xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
+                    >
+                      <div className="space-y-4">
+                        {/* Product image representation */}
+                        <div className="aspect-square w-full rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative overflow-hidden">
+                          {imgUrl ? (
+                            <img src={imgUrl} alt={name} className="object-cover w-full h-full" />
+                          ) : (
+                            <Package className="w-10 h-10 text-[#6C4CF1] opacity-70" />
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5 text-left">
+                          <span className="text-[10px] font-black text-purple-650 uppercase tracking-wider block">
+                            {category}
+                          </span>
+                          <h4 className="font-extrabold text-sm text-gray-950 dark:text-white line-clamp-1" title={name}>{name}</h4>
+                          
+                          <div className="flex items-start justify-between mt-2">
+                            <div className="flex flex-col text-left">
+                              {hasVariants ? (
+                                <span className="text-[10px] text-gray-400 font-bold mt-0.5">{variantCount} {variantCount === 1 ? 'Variant' : 'Variants'}</span>
+                              ) : (
+                                <span className="text-[10px] text-gray-400 font-bold mt-0.5">Simple Product</span>
+                              )}
+                            </div>
+                            {/* Actions area with premium Edit button */}
+                            <div className="shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenEditModal(prod)
+                                }}
+                                className="px-4 py-2 bg-purple-50 hover:bg-[#6C4CF1] dark:bg-purple-950/20 text-[#6C4CF1] hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-sm"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
+                })}
+              </div>
 
-                  <div className="border-t border-gray-100/50 dark:border-gray-800 mt-4 pt-3.5 flex items-center justify-end gap-2">
+              {/* Dynamic Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 dark:border-gray-800 pt-6">
+                  <span className="text-xs text-gray-400 font-bold">
+                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} items
+                  </span>
+                  
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleOpenEditModal(prod)}
-                      className="w-9 h-9 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/20 text-[#6C4CF1] flex items-center justify-center transition-colors border-none bg-transparent cursor-pointer"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
                     >
-                      <Edit className="w-4 h-4" />
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
+
+                    {Array.from({ length: totalPages }).map((_, idx) => {
+                      const pageNum = idx + 1
+                      const isCurrent = currentPage === pageNum
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-9 h-9 rounded-xl text-xs font-black transition-all cursor-pointer border-none
+                            ${isCurrent 
+                              ? 'bg-[#6C4CF1] text-white shadow-sm' 
+                              : 'bg-transparent text-gray-400 dark:text-gray-300 hover:text-[#6C4CF1] hover:bg-purple-50 dark:hover:bg-purple-950/20'
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+
                     <button
-                      onClick={() => handleDeleteProduct(prod.id)}
-                      className="w-9 h-9 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 flex items-center justify-center transition-colors border-none bg-transparent cursor-pointer"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -392,94 +645,148 @@ const VendorProducts = () => {
 
       {/* Product Edit/Add Modal dialog overlay */}
       <AnimatePresence>
-        {isModalOpen && (
+        {isModalOpen && editingProduct && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Modal backdrop */}
+            {/* Modal backdrop with glassmorphism */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => {
+                setIsModalOpen(false)
+                setEditingProduct(null)
+                setEditableVariants([])
+              }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-md"
             />
 
-            {/* Modal content sheet */}
+            {/* Modal Sheet */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl p-6 relative z-10 space-y-6"
+              className="bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 w-[92%] sm:w-full sm:max-w-md rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl p-4 sm:p-6 relative z-10 space-y-4 sm:space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-gray-50 dark:border-gray-800 pb-4">
-                <div className="flex items-center gap-2 text-purple-650">
-                  <Tag className="w-5 h-5" />
-                  <h3 className="font-extrabold text-base tracking-tight text-gray-950 dark:text-white uppercase">
-                    {modalMode === 'add' ? 'Add Catalog Item' : 'Edit Catalog Item'}
-                  </h3>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-[#6C4CF1]">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-black text-sm tracking-tight text-gray-950 dark:text-white uppercase">
+                      Configure Variants
+                    </h3>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Edit Store Pricing</p>
+                  </div>
                 </div>
-                <button 
-                  onClick={() => setIsModalOpen(false)}
-                  className="w-8 h-8 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center border-none bg-transparent cursor-pointer"
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    setEditingProduct(null)
+                    setEditableVariants([])
+                  }}
+                  className="w-8 h-8 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-650" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1 text-left">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Item Title</label>
-                  <input 
-                    type="text"
-                    value={prodName}
-                    onChange={(e) => setProdName(e.target.value)}
-                    placeholder="e.g. Organic Strawberries Basket"
-                    className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-800 dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Category</label>
-                    <select
-                      value={prodCategory}
-                      onChange={(e) => setProdCategory(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-800 dark:text-white"
-                    >
-                      <option value="Fruits">Fruits</option>
-                      <option value="Vegetables">Vegetables</option>
-                      <option value="Dairy">Dairy</option>
-                      <option value="Bakery">Bakery</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Price (₹)</label>
-                    <input 
-                      type="number"
-                      value={prodPrice}
-                      onChange={(e) => setProdPrice(e.target.value)}
-                      placeholder="e.g. 150"
-                      className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-800 dark:text-white"
+              {/* Product Info Card */}
+              <div className="bg-purple-50/20 dark:bg-purple-950/10 border border-purple-100/10 p-3 rounded-2xl flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-purple-100 dark:bg-purple-900/30 overflow-hidden flex items-center justify-center shrink-0 border border-purple-100/20">
+                  {getProductImage(editingProduct) ? (
+                    <img
+                      src={getProductImage(editingProduct)}
+                      alt={editingProduct.Product?.name || editingProduct.name}
+                      className="w-full h-full object-cover"
                     />
-                  </div>
+                  ) : (
+                    <Package className="w-6 h-6 text-[#6C4CF1]" />
+                  )}
                 </div>
+                <div className="min-w-0 text-left space-y-0.5">
+                  <h4 className="font-extrabold text-xs text-gray-900 dark:text-white truncate">{editingProduct.Product?.name || editingProduct.name}</h4>
+                  <span className="inline-block text-[8px] font-black text-purple-650 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    {editingProduct.Product?.categoryName || editingProduct.category || 'General'}
+                  </span>
+                </div>
+              </div>
 
-                <div className="space-y-1 text-left">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">In-Stock Quantity</label>
-                  <input 
-                    type="number"
-                    value={prodStock}
-                    onChange={(e) => setProdStock(e.target.value)}
-                    placeholder="e.g. 40"
-                    className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-800 dark:text-white"
-                  />
+              {/* Variants Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {editableVariants.map((variant, index) => (
+                    <div key={variant.variantId} className="p-3.5 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl space-y-3 transition-colors hover:border-purple-100/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={variant.isAvailable}
+                            onChange={async (e) => {
+                              const checked = e.target.checked
+                              const updated = [...editableVariants]
+                              updated[index].isAvailable = checked
+                              setEditableVariants(updated)
+                              
+                              if (editingProduct?.id) {
+                                const loadToast = toast.loading('Updating availability...')
+                                try {
+                                  await vendorService.updateProductAvailability(editingProduct.id, checked)
+                                  toast.success('Availability updated successfully!', { id: loadToast })
+                                } catch (err) {
+                                  console.error(err)
+                                  const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update availability.'
+                                  toast.error(errMsg, { id: loadToast })
+                                  
+                                  // Revert state
+                                  const reverted = [...updated]
+                                  reverted[index].isAvailable = !checked
+                                  setEditableVariants(reverted)
+                                }
+                              }
+                            }}
+                            className="w-4.5 h-4.5 text-[#6C4CF1] rounded-lg border-gray-300 dark:border-gray-700 focus:ring-[#6C4CF1] cursor-pointer"
+                          />
+                          <span className={`text-[9px] font-extrabold uppercase tracking-wider transition-colors ${variant.isAvailable ? 'text-emerald-600' : 'text-gray-400'}`}>
+                            {variant.isAvailable ? 'In Stock' : 'Out of Stock'}
+                          </span>
+                        </label>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3.5">
+                        <div className="text-left">
+                          <span className="text-[8px] font-bold text-gray-400 block uppercase tracking-wider mb-1">Base Price</span>
+                          <div className="w-full px-3 py-2.5 bg-gray-100 dark:bg-gray-800/80 rounded-xl text-xs font-black text-gray-500 dark:text-gray-400 border border-transparent">
+                            ₹{variant.price}
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <span className="text-[8px] font-black text-[#6C4CF1] block uppercase tracking-wider mb-1">Store Price (₹)</span>
+                          <input
+                            type="number"
+                            value={variant.discountPrice}
+                            onChange={(e) => {
+                              const updated = [...editableVariants]
+                              updated[index].discountPrice = e.target.value
+                              setEditableVariants(updated)
+                            }}
+                            placeholder="e.g. 250"
+                            className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-[#6C4CF1]/20 focus:border-[#6C4CF1] text-gray-800 dark:text-white transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md mt-4 border-none cursor-pointer"
+                  className="w-full py-4 bg-gradient-to-r from-[#6C4CF1] to-[#5B3BE8] hover:scale-[1.01] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-purple-550/20 mt-4 border-none flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {modalMode === 'add' ? 'Confirm and Save' : 'Save Changes'}
+                  <Edit className="w-4.5 h-4.5" />
+                  Save Changes
                 </button>
               </form>
             </motion.div>

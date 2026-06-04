@@ -240,23 +240,31 @@ const VendorRegisterPage = () => {
                         <span className="text-sm font-semibold">Detecting location...</span>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3 text-left">
-                        <Input 
-                          label="Latitude" 
-                          name="latitude" 
-                          value={formData.latitude} 
-                          readOnly={true}
-                          className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
-                          placeholder="Auto-filled" 
-                        />
-                        <Input 
-                          label="Longitude" 
-                          name="longitude" 
-                          value={formData.longitude} 
-                          readOnly={true}
-                          className="bg-gray-100 dark:bg-gray-800 text-gray-500 cursor-not-allowed"
-                          placeholder="Auto-filled" 
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-550 block">Latitude</label>
+                          <div className="flex items-center w-full px-4 py-2.5 rounded-xl border border-gray-150 dark:border-gray-800 bg-gray-100 dark:bg-gray-950 text-gray-500 cursor-not-allowed">
+                            <input
+                              type="text"
+                              value={formData.latitude}
+                              readOnly
+                              className="w-full bg-transparent outline-none text-xs text-gray-600 dark:text-gray-300 font-mono truncate"
+                              placeholder="Auto-detecting..."
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-550 block">Longitude</label>
+                          <div className="flex items-center w-full px-4 py-2.5 rounded-xl border border-gray-150 dark:border-gray-800 bg-gray-100 dark:bg-gray-950 text-gray-500 cursor-not-allowed">
+                            <input
+                              type="text"
+                              value={formData.longitude}
+                              readOnly
+                              className="w-full bg-transparent outline-none text-xs text-gray-600 dark:text-gray-300 font-mono truncate"
+                              placeholder="Auto-detecting..."
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                     

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { Mail, Lock, ArrowRight, ArrowLeft, Store } from 'lucide-react'
+import { Mail, Lock, ArrowRight, ArrowLeft, Store, Clock, X } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import logo from '../../assets/nearzo-logo.png'
@@ -14,6 +14,7 @@ const VendorLoginPage = () => {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const navigate = useNavigate()
   const { setUser } = useApp()
 
@@ -38,11 +39,17 @@ const VendorLoginPage = () => {
     setLoading(true)
     try {
       const data = await vendorAuthService.login({ email, password })
+      const vendorUser = data.vendor || data.user || data.data || {}
+      
+      // If vendor is not approved, block dashboard access and prompt pending message
+      if (vendorUser.isApproved === false) {
+        vendorAuthService.logout()
+        setIsApprovalModalOpen(true)
+        return
+      }
+
       toast.success('Welcome back, Partner! Login successful')
-
-      const vendorUser = data.vendor || data.user || data.data || { shopName: 'Partner' }
       setUser(vendorUser)
-
       navigate('/vendor/dashboard')
     } catch (error) {
       const errorMsg = error.message?.toLowerCase() || ''
@@ -152,6 +159,53 @@ const VendorLoginPage = () => {
           </Link>
         </p>
       </div>
+
+      <AnimatePresence>
+        {isApprovalModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsApprovalModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-white/5 w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl p-6 relative z-10 text-center space-y-6"
+            >
+              <div className="flex justify-end absolute top-4 right-4">
+                <button
+                  onClick={() => setIsApprovalModalOpen(false)}
+                  className="w-8 h-8 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="pt-4">
+                <div className="w-16 h-16 bg-amber-50 dark:bg-amber-955/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-200/30">
+                  <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Account Pending Approval</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 px-2 leading-relaxed">
+                  Aapka account abhi verification pipeline me hai. Nearzo Admin team ise review kar rahi hai. Approval hote hi aap panel login kar sakenge. Kripya thoda wait karein!
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsApprovalModalOpen(false)}
+                className="w-full py-3 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer border-none"
+              >
+                Got it, Thank you
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

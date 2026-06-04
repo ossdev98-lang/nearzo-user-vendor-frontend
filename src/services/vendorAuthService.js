@@ -97,5 +97,14 @@ export const vendorAuthService = {
     } catch (error) {
       throw error.response?.data || error
     }
+  },
+
+  toggleWorkMode: async (workMode) => {
+    try {
+      const response = await API.put('/vendor/auth/work-mode', { workMode })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
   }
 }

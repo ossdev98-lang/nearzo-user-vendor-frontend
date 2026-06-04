@@ -15,6 +15,9 @@ const BottomNav = () => {
   const navigate = useNavigate()
   const location = useLocation()
 
+  // Hide on vendor routes
+  if (location.pathname.startsWith('/vendor')) return null
+
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },
     { label: 'Search', icon: Search, path: '#search' },

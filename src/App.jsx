@@ -10,6 +10,7 @@ import ForgotPasswordPage from './pages/ForgotPassword/ForgotPasswordPage'
 import VerifyOtpPage from './pages/VerifyOtp/VerifyOtpPage'
 import ResetPasswordPage from './pages/ResetPassword/ResetPasswordPage'
 import BottomNav from './components/navbar/BottomNav'
+import VendorBottomNav from './components/navbar/VendorBottomNav'
 import CartPage from './pages/Cart/CartPage'
 import ShopPage from './pages/Shop/ShopPage'
 import ProductPage from './pages/Product/ProductPage'
@@ -30,6 +31,7 @@ import VendorDashboard from './pages/Vendor/VendorDashboard'
 import VendorOrders from './pages/Vendor/VendorOrders'
 import VendorProducts from './pages/Vendor/VendorProducts'
 import VendorSettings from './pages/Vendor/VendorSettings'
+import VendorMasterProducts from './pages/Vendor/VendorMasterProducts'
 import { onMessageListener } from './services/firebase'
 import { toast } from 'react-hot-toast'
 
@@ -47,6 +49,8 @@ const App = () => {
   const location = useLocation()
   const [isInitialMount, setIsInitialMount] = useState(true)
   const [isPageLoading, setIsPageLoading] = useState(true)
+  const [isVendorRouteLoading, setIsVendorRouteLoading] = useState(false)
+  const prevVendorPath = useState(null)
 
   useEffect(() => {
     // Setup foreground message listener for push notifications
@@ -92,6 +96,20 @@ const App = () => {
     } else {
       setIsPageLoading(false)
     }
+  }, [location.pathname])
+
+  // Vendor route navigation loader
+  useEffect(() => {
+    if (!location.pathname.startsWith('/vendor/')) return
+    if (prevVendorPath[0] === null) {
+      prevVendorPath[0] = location.pathname
+      return
+    }
+    if (prevVendorPath[0] === location.pathname) return
+    prevVendorPath[0] = location.pathname
+    setIsVendorRouteLoading(true)
+    const t = setTimeout(() => setIsVendorRouteLoading(false), 500)
+    return () => clearTimeout(t)
   }, [location.pathname])
 
   const showLoader = isInitialMount || isPageLoading
@@ -345,6 +363,16 @@ const App = () => {
               </VendorProtectedRoute>
             }
           />
+          <Route
+            path="/vendor/master-products"
+            element={
+              <VendorProtectedRoute>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <VendorMasterProducts />
+                </motion.div>
+              </VendorProtectedRoute>
+            }
+          />
 
           {/* 404 */}
           <Route
@@ -364,7 +392,28 @@ const App = () => {
       </AnimatePresence>
       <InstallPWA />
       <BottomNav />
+      <VendorBottomNav />
       <LoadingScreen isVisible={showLoader} />
+
+      {/* Vendor Page Transition Loader */}
+      <AnimatePresence>
+        {isVendorRouteLoading && (
+          <motion.div
+            key="vendor-loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/85 dark:bg-gray-950/85 backdrop-blur-sm"
+          >
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 rounded-full border-4 border-purple-100 dark:border-purple-950/30" />
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#6C4CF1] animate-spin" />
+            </div>
+            <p className="mt-4 text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">Loading...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
