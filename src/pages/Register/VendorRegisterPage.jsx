@@ -77,12 +77,43 @@ const VendorRegisterPage = () => {
   const validateStep = () => {
     const newErrors = {}
     if (currentStep === 1) {
-      if (!formData.ownerName) newErrors.ownerName = 'Owner name is required'
-      if (!formData.email) newErrors.email = 'Email is required'
-      if (!formData.phone) newErrors.phone = 'Phone is required'
-      if (!formData.password) newErrors.password = 'Password is required'
+      if (!formData.ownerName.trim()) {
+        newErrors.ownerName = 'Owner name is required'
+      } else if (formData.ownerName.trim().length < 2) {
+        newErrors.ownerName = 'Name must be at least 2 characters'
+      }
+
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required'
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Enter a valid email address'
+      }
+
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Phone number is required'
+      } else if (!/^\d{10}$/.test(formData.phone.trim())) {
+        newErrors.phone = 'Enter a valid 10-digit phone number'
+      }
+
+      if (!formData.password) {
+        newErrors.password = 'Password is required'
+      } else if (formData.password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters'
+      } else if (!/[A-Z]/.test(formData.password)) {
+        newErrors.password = 'Must contain at least one uppercase letter'
+      } else if (!/[0-9]/.test(formData.password)) {
+        newErrors.password = 'Must contain at least one number'
+      }
     } else if (currentStep === 2) {
-      if (!formData.shopName) newErrors.shopName = 'Shop name is required'
+      if (!formData.shopName.trim()) {
+        newErrors.shopName = 'Shop name is required'
+      } else if (formData.shopName.trim().length < 2) {
+        newErrors.shopName = 'Shop name must be at least 2 characters'
+      }
+    } else if (currentStep === 3) {
+      if (!formData.aadharFront) newErrors.aadharFront = 'Aadhar Front is required'
+      if (!formData.aadharBack) newErrors.aadharBack = 'Aadhar Back is required'
+      if (!formData.shopRegisterImage) newErrors.shopRegisterImage = 'Shop Register Image is required'
     } else if (currentStep === 4) {
       if (!formData.latitude || !formData.longitude) {
         toast.error('Location is required. Please wait for it to be fetched.')
@@ -190,7 +221,7 @@ const VendorRegisterPage = () => {
                 <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-4">
                   <Input label="Owner Name *" name="ownerName" value={formData.ownerName} onChange={handleChange} error={errors.ownerName} icon={<User className="w-4 h-4 text-gray-400" />} placeholder="Full Name" />
                   <Input label="Email Address *" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} icon={<Mail className="w-4 h-4 text-gray-400" />} placeholder="shop@example.com" />
-                  <Input label="Phone Number *" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} icon={<Phone className="w-4 h-4 text-gray-400" />} placeholder="10-digit number" />
+                  <Input label="Phone Number *" name="phone" value={formData.phone} onChange={handleChange} error={errors.phone} icon={<Phone className="w-4 h-4 text-gray-400" />} placeholder="10-digit number" maxLength={10} />
                   <Input label="Password *" name="password" type="password" value={formData.password} onChange={handleChange} error={errors.password} icon={<Lock className="w-4 h-4 text-gray-400" />} placeholder="Create password" />
                 </motion.div>
               )}
@@ -206,19 +237,22 @@ const VendorRegisterPage = () => {
               {currentStep === 3 && (
                 <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="space-y-5">
                   <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Upload Documents (Optional)</label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Upload Documents *</label>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Aadhar Front</label>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Aadhar Front *</label>
                         <input type="file" name="aadharFront" onChange={handleChange} className="text-xs w-full text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700" />
+                        {errors.aadharFront && <p className="text-[10px] text-red-500 font-bold mt-1">{errors.aadharFront}</p>}
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Aadhar Back</label>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Aadhar Back *</label>
                         <input type="file" name="aadharBack" onChange={handleChange} className="text-xs w-full text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700" />
+                        {errors.aadharBack && <p className="text-[10px] text-red-500 font-bold mt-1">{errors.aadharBack}</p>}
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Shop Image</label>
+                        <label className="text-xs font-semibold text-gray-500 mb-1 block">Shop Register Image *</label>
                         <input type="file" name="shopRegisterImage" onChange={handleChange} className="text-xs w-full text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700" />
+                        {errors.shopRegisterImage && <p className="text-[10px] text-red-500 font-bold mt-1">{errors.shopRegisterImage}</p>}
                       </div>
                     </div>
                   </div>

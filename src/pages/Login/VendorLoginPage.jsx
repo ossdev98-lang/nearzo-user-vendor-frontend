@@ -41,8 +41,29 @@ const VendorLoginPage = () => {
       const data = await vendorAuthService.login({ email, password })
       const vendorUser = data.vendor || data.user || data.data || {}
       
+      // Call approval status API to check status
+      let isApproved = true
+      try {
+        const approvalRes = await vendorAuthService.getApprovalStatus()
+        if (approvalRes) {
+          const status = String(approvalRes.status || approvalRes.approvalStatus || '').toLowerCase()
+          const isAppr = approvalRes.isApproved !== undefined 
+            ? approvalRes.isApproved 
+            : (approvalRes.data?.isApproved !== undefined ? approvalRes.data.isApproved : true)
+            
+          if (isAppr === false || status === 'pending' || status === 'rejected' || status === 'unapproved') {
+            isApproved = false
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check approval status:', err)
+        if (err.status === 403 || err.message?.toLowerCase().includes('approve') || err.message?.toLowerCase().includes('pending')) {
+          isApproved = false
+        }
+      }
+
       // If vendor is not approved, block dashboard access and prompt pending message
-      if (vendorUser.isApproved === false) {
+      if (!isApproved || vendorUser.isApproved === false) {
         vendorAuthService.logout()
         setIsApprovalModalOpen(true)
         return

@@ -106,5 +106,14 @@ export const vendorAuthService = {
     } catch (error) {
       throw error.response?.data || error
     }
+  },
+
+  getApprovalStatus: async () => {
+    try {
+      const response = await API.get('/vendor/auth/approval-status')
+      return response.data
+    } catch (error) {
+      throw error.response?.data || error
+    }
   }
 }

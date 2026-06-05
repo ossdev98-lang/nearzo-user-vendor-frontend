@@ -63,9 +63,9 @@ export const vendorService = {
       }
     }
   },
-  getProducts: async () => {
+  getProducts: async (params = {}) => {
     try {
-      const response = await API.get('/vendor/products')
+      const response = await API.get('/vendor/products', { params })
       return response.data
     } catch (error) {
       console.warn('Backend /vendor/products fallback, returning mock data', error)

@@ -34,6 +34,7 @@ import VendorSettings from './pages/Vendor/VendorSettings'
 import VendorMasterProducts from './pages/Vendor/VendorMasterProducts'
 import { onMessageListener } from './services/firebase'
 import { toast } from 'react-hot-toast'
+import notificationSound from './assets/final notification sound .mp3'
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useApp()
@@ -56,6 +57,12 @@ const App = () => {
     // Setup foreground message listener for push notifications
     const unsubscribe = onMessageListener((payload) => {
       console.log('Foreground message received in active view:', payload)
+      try {
+        const audio = new Audio(notificationSound)
+        audio.play().catch(err => console.log('Audio playback blocked/failed:', err))
+      } catch (err) {
+        console.error('Audio creation failed:', err)
+      }
       toast((t) => (
         <div className="flex flex-col gap-1">
           <div className="font-extrabold text-gray-900 dark:text-white text-sm">

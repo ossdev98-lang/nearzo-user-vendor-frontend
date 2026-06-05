@@ -35,6 +35,19 @@ const VendorMasterProducts = () => {
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
 
+  const getProductImage = (prod) => {
+    if (!prod) return null;
+    let imgPath = prod.image || (prod.images && prod.images[0]);
+    if (!imgPath) return null;
+    if (typeof imgPath === 'object') {
+      imgPath = imgPath.url || imgPath.image || imgPath.path || '';
+    }
+    if (typeof imgPath !== 'string' || !imgPath) return null;
+    if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+    const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com';
+    return `${baseUrlForImage.replace(/\/$/, '')}/${imgPath.replace(/^\//, '')}`;
+  }
+
   // States
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -104,20 +117,25 @@ const VendorMasterProducts = () => {
       }
 
       // Initialize the variants list for editing
-      const initialVariants = (product.variants && product.variants.length > 0) 
-        ? product.variants.map(v => ({
+      const vendorProduct = response?.vendorProduct || response?.data?.vendorProduct || response
+      const apiVariants = vendorProduct?.variants || product.variants || []
+
+      const initialVariants = (apiVariants && apiVariants.length > 0) 
+        ? apiVariants.map(v => ({
             variantId: v.variantId || v.id,
             name: v.name || 'Default Variant',
             price: cleanPriceValue(v.price),
             discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-            isAvailable: v.isAvailable !== false
+            isAvailable: v.isAvailable !== false,
+            image: v.image || (v.images && v.images[0])
           }))
         : [{
             variantId: 'v-default',
             name: 'Regular',
             price: cleanPriceValue(product.price),
             discountPrice: cleanPriceValue(product.price),
-            isAvailable: true
+            isAvailable: true,
+            image: product.image || (product.images && product.images[0])
           }]
 
       setEditableVariants(initialVariants)
@@ -340,18 +358,15 @@ const VendorMasterProducts = () => {
                     <div className="space-y-3">
                       {/* Product Representation Media */}
                       <div className="aspect-square w-full rounded-xl bg-gradient-to-br from-purple-100 to-indigo-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative overflow-hidden">
-                        {prod.image || prod.images?.[0] ? (
+                        {getProductImage(prod) ? (
                           <img
-                            src={prod.image || prod.images?.[0]}
+                            src={getProductImage(prod)}
                             alt={prod.name}
                             className="object-cover w-full h-full group-hover:scale-105 transition-transform"
                           />
                         ) : (
                           <Package className="w-8 h-8 text-[#6C4CF1] opacity-70 animate-pulse" />
                         )}
-                        <span className="absolute top-2 left-2 bg-white/90 dark:bg-gray-850/90 text-purple-650 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm border border-purple-50/10">
-                          {prod.category || 'General'}
-                        </span>
                       </div>
 
                       <div className="space-y-1 text-left">
@@ -475,9 +490,9 @@ const VendorMasterProducts = () => {
               {/* Product Info Card */}
               <div className="bg-purple-50/20 dark:bg-purple-950/10 border border-purple-100/10 p-3 rounded-2xl flex items-center gap-3">
                 <div className="w-14 h-14 rounded-xl bg-purple-100 dark:bg-purple-900/30 overflow-hidden flex items-center justify-center shrink-0 border border-purple-100/20">
-                  {importingProduct.image || importingProduct.images?.[0] ? (
+                  {getProductImage(importingProduct) ? (
                     <img
-                      src={importingProduct.image || importingProduct.images?.[0]}
+                      src={getProductImage(importingProduct)}
                       alt={importingProduct.name}
                       className="w-full h-full object-cover"
                     />
@@ -499,7 +514,16 @@ const VendorMasterProducts = () => {
                   {editableVariants.map((variant, index) => (
                     <div key={variant.variantId} className="p-3.5 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl space-y-3 transition-colors hover:border-purple-100/10">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-purple-100/20 bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
+                            {getProductImage(variant) ? (
+                              <img src={getProductImage(variant)} alt={variant.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="w-4 h-4 text-[#6C4CF1]" />
+                            )}
+                          </div>
+                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                        </div>
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"

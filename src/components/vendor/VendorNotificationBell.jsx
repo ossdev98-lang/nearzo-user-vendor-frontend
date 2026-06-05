@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Package } from 'lucide-react'
 import { vendorService } from '../../services/vendorService'
 import { toast } from 'react-hot-toast'
+import notificationSound from '../../assets/final notification sound .mp3'
 
 const VendorNotificationBell = () => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationsList, setNotificationsList] = useState([])
+  const notificationsRef = useRef([])
+
+  useEffect(() => {
+    notificationsRef.current = notificationsList
+  }, [notificationsList])
 
   const fetchNotifications = async () => {
     const isLoggedIn = !!localStorage.getItem('token')
@@ -51,6 +57,19 @@ const VendorNotificationBell = () => {
         unread: item.unread !== undefined ? item.unread : (item.read !== undefined ? !item.read : (item.isRead !== undefined ? !item.isRead : true))
       }))
       
+      const prevList = notificationsRef.current
+      const prevUnreadCount = prevList.filter(n => n.unread).length
+      const newUnreadCount = mapped.filter(n => n.unread).length
+
+      if (prevList.length > 0 && newUnreadCount > prevUnreadCount) {
+        try {
+          const audio = new Audio(notificationSound)
+          audio.play().catch(e => console.log('Autoplay blocked:', e))
+        } catch (e) {
+          console.error('Audio play failed:', e)
+        }
+      }
+
       setNotificationsList(mapped)
     } catch (error) {
       console.error('Failed to fetch vendor notifications:', error)

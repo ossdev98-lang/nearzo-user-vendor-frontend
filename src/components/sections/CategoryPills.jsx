@@ -21,7 +21,7 @@ export default function CategoryPills({ selected, onSelect }) {
     const fetchCategories = async () => {
       try {
         const data = await categoryService.getShopCategories()
-        if (data && data.success && Array.isArray(data.shopCategories)) {
+        if (data && data.success && Array.isArray(data.shopCategories) && data.shopCategories.length > 0) {
           const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
           
           const dynamicCategories = data.shopCategories.map(c => {
@@ -43,19 +43,12 @@ export default function CategoryPills({ selected, onSelect }) {
             { name: 'All', image: dummyProduct },
             ...dynamicCategories
           ])
+        } else {
+          setCategories([])
         }
       } catch (error) {
         console.error('Error fetching categories from API:', error)
-        // Fallback static categories
-        setCategories([
-          { name: 'All', image: dummyProduct },
-          { name: 'Fruits', image: dummyProduct },
-          { name: 'Vegetables', image: dummyProduct },
-          { name: 'Dairy', image: dummyProduct },
-          { name: 'Beverages', image: dummyProduct },
-          { name: 'Snacks', image: dummyProduct },
-          { name: 'Bakery', image: dummyProduct }
-        ])
+        setCategories([])
       } finally {
         setLoading(false)
       }
@@ -75,6 +68,10 @@ export default function CategoryPills({ selected, onSelect }) {
         </div>
       </div>
     )
+  }
+
+  if (!categories || categories.length === 0) {
+    return null
   }
 
   return (

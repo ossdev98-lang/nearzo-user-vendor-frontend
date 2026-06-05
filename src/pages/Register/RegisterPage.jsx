@@ -236,14 +236,20 @@ const RegisterPage = () => {
             error={errors.name}
             icon={<User className="w-4 h-4 text-gray-400" />}
           />
-          <Input
-            label="Avatar Image (Optional)"
-            type="file"
-            name="avatar"
-            accept="image/*"
-            onChange={handleChange}
-            icon={<User className="w-4 h-4 text-gray-400" />}
-          />
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Avatar Image (Optional)
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                name="avatar"
+                accept="image/*"
+                onChange={handleChange}
+                className="text-xs w-full text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer bg-white dark:bg-gray-900 rounded-lg border border-gray-250 dark:border-white/10 p-2.5"
+              />
+            </div>
+          </div>
           <Input
             label="Email Address"
             type="email"

@@ -41,9 +41,14 @@ const VendorProducts = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [allCategories, setAllCategories] = useState(['all'])
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 8
+  const [serverTotalPages, setServerTotalPages] = useState(1)
+  const [serverTotalCount, setServerTotalCount] = useState(0)
+  const [isServerPaginated, setIsServerPaginated] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState('add') // 'add' or 'edit'
   const [editingProduct, setEditingProduct] = useState(null)
@@ -56,24 +61,78 @@ const VendorProducts = () => {
   const [prodPrice, setProdPrice] = useState('')
   const [prodStock, setProdStock] = useState('')
 
-  // Fetch products from catalog API
+  // Debounce search query to prevent rapid API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 450)
+    return () => clearTimeout(handler)
+  }, [searchQuery])
+
+  // Fetch categories list once on mount to populate the category filters
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await vendorService.getProducts({ limit: 1000 })
+        if (data) {
+          const list = Array.isArray(data) 
+            ? data 
+            : (data.vendorProducts || data.products || data.data || [])
+          const cats = ['all', ...new Set(list.map(p => {
+            const cat = p.Product?.categoryName || p.category || 'General'
+            return cat.trim()
+          }).filter(Boolean))]
+          setAllCategories(cats)
+        }
+      } catch (err) {
+        console.warn('Failed to load categories list', err)
+      }
+    }
+    loadCategories()
+  }, [])
+
+  // Fetch products from catalog API with query params
   const fetchProducts = async () => {
+    setLoading(true)
     try {
-      const data = await vendorService.getProducts()
+      const params = {
+        search: debouncedSearch || undefined,
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        page: currentPage,
+        limit: itemsPerPage
+      }
+      const data = await vendorService.getProducts(params)
       if (data) {
         if (Array.isArray(data)) {
+          // Plain array response (backend did not paginate/filter on server)
           setProducts(data)
-        } else if (data.vendorProducts && Array.isArray(data.vendorProducts)) {
-          setProducts(data.vendorProducts)
-        } else if (data.products && Array.isArray(data.products)) {
-          setProducts(data.products)
-        } else if (data.data && Array.isArray(data.data)) {
-          setProducts(data.data)
+          setIsServerPaginated(false)
+          setServerTotalPages(Math.ceil(data.length / itemsPerPage))
+          setServerTotalCount(data.length)
         } else {
-          setProducts([])
+          // Paginated response
+          const list = data.vendorProducts || data.products || data.data || []
+          setProducts(list)
+          setIsServerPaginated(true)
+          
+          const totalCount = data.total || data.count || list.length
+          setServerTotalCount(totalCount)
+          
+          if (data.totalPages !== undefined) {
+            setServerTotalPages(data.totalPages)
+          } else if (data.total !== undefined) {
+            setServerTotalPages(Math.ceil(data.total / itemsPerPage))
+          } else {
+            // Fallback to client-side pagination if paginated details aren't returned
+            setIsServerPaginated(false)
+            setServerTotalPages(Math.ceil(list.length / itemsPerPage))
+          }
         }
       } else {
         setProducts([])
+        setIsServerPaginated(false)
+        setServerTotalPages(1)
+        setServerTotalCount(0)
       }
     } catch (err) {
       toast.error('Failed to load products')
@@ -84,7 +143,7 @@ const VendorProducts = () => {
 
   useEffect(() => {
     fetchProducts()
-  }, [])
+  }, [currentPage, selectedCategory, debouncedSearch])
 
   const handleLogout = () => {
     vendorAuthService.logout()
@@ -122,14 +181,16 @@ const VendorProducts = () => {
           name: v.name || 'Default Variant',
           price: cleanPriceValue(v.price),
           discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-          isAvailable: v.isAvailable !== false
+          isAvailable: v.isAvailable !== false,
+          image: v.image || (v.images && v.images[0])
         }))
       : [{
           variantId: 'v-default',
           name: 'Regular',
           price: cleanPriceValue(product.Product?.price || product.price),
           discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
-          isAvailable: product.isAvailable !== false && product.stock !== 0
+          isAvailable: product.isAvailable !== false && product.stock !== 0,
+          image: product.image || (product.images && product.images[0]) || product.Product?.primaryImage
         }]
 
     setEditableVariants(initialVariants)
@@ -216,37 +277,70 @@ const VendorProducts = () => {
 
   // Helper to resolve product image from server
   const getProductImage = (prod) => {
-    const imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
+    if (!prod) return null;
+    let imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
     if (!imgPath) return null;
+    if (typeof imgPath === 'object') {
+      imgPath = imgPath.url || imgPath.image || imgPath.path || '';
+    }
+    if (typeof imgPath !== 'string' || !imgPath) return null;
     if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://instamart-server.vercel.app/api';
-    const domain = apiBase.replace('/api', '');
-    return `${domain}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
+    const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com';
+    return `${baseUrlForImage.replace(/\/$/, '')}/${imgPath.replace(/^\//, '')}`;
   }
 
-  // Filter products based on search query matching name or category, and selected tab category
-  const filteredProducts = products.filter(product => {
+  // Check if the server-returned products actually match the selected category.
+  // If the server returned any product that does NOT match the selected category,
+  // it means the server did not filter by category, so we must filter client-side.
+  const serverDidFilterCategory = selectedCategory === 'all' || products.length === 0 || products.every(product => {
+    const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
+    return category === selectedCategory.toLowerCase()
+  })
+
+  // Same for search query: check if all returned products match the search query.
+  // If not, it means the server did not filter by search, so we must filter client-side.
+  const serverDidFilterSearch = !searchQuery || products.length === 0 || products.every(product => {
     const name = (product.Product?.name || product.name || '').toLowerCase()
     const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
     const query = searchQuery.toLowerCase()
-    
-    const matchesSearch = name.includes(query) || category.includes(query)
-    const matchesCategory = selectedCategory === 'all' || category === selectedCategory.toLowerCase()
-    
-    return matchesSearch && matchesCategory
+    return name.includes(query) || category.includes(query)
   })
 
+  const shouldFilterLocally = !serverDidFilterCategory || !serverDidFilterSearch
+
+  // Filter products based on search query matching name or category, and selected tab category
+  const filteredProducts = shouldFilterLocally
+    ? products.filter(product => {
+        const name = (product.Product?.name || product.name || '').toLowerCase()
+        const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
+        const query = searchQuery.toLowerCase()
+        
+        const matchesSearch = name.includes(query) || category.includes(query)
+        const matchesCategory = selectedCategory === 'all' || category === selectedCategory.toLowerCase()
+        
+        return matchesSearch && matchesCategory
+      })
+    : products
+
   // Pagination calculations
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+  const totalPages = shouldFilterLocally
+    ? Math.ceil(filteredProducts.length / itemsPerPage)
+    : serverTotalPages
+
   const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage)
+  
+  const paginatedProducts = shouldFilterLocally
+    ? filteredProducts.slice(startIndex, startIndex + itemsPerPage)
+    : products
+
+  const totalItemsCount = shouldFilterLocally ? filteredProducts.length : serverTotalCount
 
   useEffect(() => {
     setCurrentPage(1)
   }, [selectedCategory, searchQuery])
 
   // Generate unique categories dynamically from catalog
-  const uniqueCategories = ['all', ...new Set(products.map(p => {
+  const uniqueCategories = allCategories.length > 1 ? allCategories : ['all', ...new Set(products.map(p => {
     const cat = p.Product?.categoryName || p.category || 'General'
     return cat.trim()
   }).filter(Boolean))]
@@ -598,7 +692,7 @@ const VendorProducts = () => {
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 dark:border-gray-800 pt-6">
                   <span className="text-xs text-gray-400 font-bold">
-                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} items
+                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalItemsCount)} of {totalItemsCount} items
                   </span>
                   
                   <div className="flex items-center gap-1">
@@ -719,7 +813,16 @@ const VendorProducts = () => {
                   {editableVariants.map((variant, index) => (
                     <div key={variant.variantId} className="p-3.5 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl space-y-3 transition-colors hover:border-purple-100/10">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-purple-100/20 bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
+                            {getProductImage(variant) ? (
+                              <img src={getProductImage(variant)} alt={variant.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="w-4 h-4 text-[#6C4CF1]" />
+                            )}
+                          </div>
+                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                        </div>
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"
