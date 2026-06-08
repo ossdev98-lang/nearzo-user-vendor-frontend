@@ -7,14 +7,15 @@ export const vendorAuthService = {
       const fcmToken = await requestForToken()
       const response = await API.post('/vendor/auth/login', { ...credentials, fcmToken })
       const data = response.data
-      
+      console.log(data.token, "data");
+
       // Always set role to vendor on successful login
       localStorage.setItem('role', 'vendor')
-      
-      if (data.token || data.accessToken) {
-        localStorage.setItem('token', data.token || data.accessToken)
+
+      if (data.token) {
+        localStorage.setItem('token', data.token)
       }
-      
+
       if (data.vendor || data.user || data.data) {
         localStorage.setItem('user', JSON.stringify(data.vendor || data.user || data.data))
       }
@@ -28,7 +29,7 @@ export const vendorAuthService = {
   register: async (vendorData) => {
     try {
       const fcmToken = await requestForToken()
-      
+
       let payload = vendorData
       if (payload instanceof FormData) {
         if (!payload.has('fcmToken')) {

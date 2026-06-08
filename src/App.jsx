@@ -38,12 +38,14 @@ import notificationSound from './assets/final notification sound .mp3'
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useApp()
-  return user ? children : <Navigate to="/login" replace />
+  const token = localStorage.getItem('token')
+  return (user && token) ? children : <Navigate to="/login" replace />
 }
 
 const VendorProtectedRoute = ({ children }) => {
   const role = localStorage.getItem('role')
-  return role === 'vendor' ? children : <Navigate to="/vendor/login" replace />
+  const token = localStorage.getItem('token')
+  return (role === 'vendor' && token) ? children : <Navigate to="/vendor/login" replace />
 }
 
 const App = () => {

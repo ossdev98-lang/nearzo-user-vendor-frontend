@@ -39,14 +39,7 @@ export const vendorService = {
       const response = await API.get('/vendor/orders')
       return response.data
     } catch (error) {
-      // Return local orders list fallback if backend lacks specific endpoint
-      console.warn('Backend /vendor/orders fallback, returning mock data', error)
-      return [
-        { id: '#ORD12345', time: '10:30 AM', customer: 'Amit Kumar', price: '₹1,250', status: 'Completed', type: 'completed', notes: 'Leave instruction: Ring the bell twice.', voiceInstruction: '' },
-        { id: '#ORD12344', time: '10:05 AM', customer: 'Neha Singh', price: '₹890', status: 'Processing', type: 'processing', notes: 'Call me when near the gate.', voiceInstruction: 'dummy_audio' },
-        { id: '#ORD12343', time: '09:45 AM', customer: 'Ravi Patel', price: '₹645', status: 'Packed', type: 'packed', notes: 'Deliver after 5 PM.', voiceInstruction: 'dummy_audio' },
-        { id: '#ORD12342', time: '09:20 AM', customer: 'Priya Sharma', price: '₹1,150', status: 'Completed', type: 'completed', notes: 'Please pack carefully.', voiceInstruction: '' }
-      ]
+      throw error.response?.data || error
     }
   },
   updateOrderStatus: async (orderId, status) => {
@@ -68,13 +61,7 @@ export const vendorService = {
       const response = await API.get('/vendor/products', { params })
       return response.data
     } catch (error) {
-      console.warn('Backend /vendor/products fallback, returning mock data', error)
-      return [
-        { id: '1', name: 'Fresh Apples', category: 'Fruits', price: '₹120', stock: 50 },
-        { id: '2', name: 'Organic Broccoli', category: 'Vegetables', price: '₹80', stock: 30 },
-        { id: '3', name: 'Whole Milk 1L', category: 'Dairy', price: '₹60', stock: 100 },
-        { id: '4', name: 'Multigrain Bread', category: 'Bakery', price: '₹45', stock: 25 }
-      ]
+      throw error.response?.data || error
     }
   },
   addProduct: async (productData) => {

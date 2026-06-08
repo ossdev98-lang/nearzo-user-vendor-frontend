@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import groceryGif from '../../assets/gifs/Grocery shopping bag pickup and delivery.gif'
 import { categoryService } from '../../services/categoryService'
 import dummyProduct from '../../assets/images/dummyProduct.jpg'
+import groceryImage from '../../assets/images/groceryImage.jpg'
 
 // Fallback images for dynamic category names if image is null
 const categoryImageFallbacks = {
@@ -40,7 +41,7 @@ export default function CategoryPills({ selected, onSelect }) {
           
           // Add 'All' Category to the front
           setCategories([
-            { name: 'All', image: dummyProduct },
+            { name: 'All', image: groceryImage },
             ...dynamicCategories
           ])
         } else {

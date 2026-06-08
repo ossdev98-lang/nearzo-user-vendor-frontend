@@ -23,7 +23,7 @@ API.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          localStorage.removeItem('token')
+          // localStorage.removeItem('token')
           // window.location.href = '/login'
           break
         case 404:

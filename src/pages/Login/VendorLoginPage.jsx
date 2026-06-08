@@ -39,33 +39,24 @@ const VendorLoginPage = () => {
     setLoading(true)
     try {
       const data = await vendorAuthService.login({ email, password })
-      const vendorUser = data.vendor || data.user || data.data || {}
-      
-      // Call approval status API to check status
-      let isApproved = true
-      try {
-        const approvalRes = await vendorAuthService.getApprovalStatus()
-        if (approvalRes) {
-          const status = String(approvalRes.status || approvalRes.approvalStatus || '').toLowerCase()
-          const isAppr = approvalRes.isApproved !== undefined 
-            ? approvalRes.isApproved 
-            : (approvalRes.data?.isApproved !== undefined ? approvalRes.data.isApproved : true)
-            
-          if (isAppr === false || status === 'pending' || status === 'rejected' || status === 'unapproved') {
-            isApproved = false
-          }
-        }
-      } catch (err) {
-        console.error('Failed to check approval status:', err)
-        if (err.status === 403 || err.message?.toLowerCase().includes('approve') || err.message?.toLowerCase().includes('pending')) {
-          isApproved = false
-        }
-      }
+      const vendorUser = data.vendor || data.user || data.data?.vendor || data.data?.user || data.data || {}
+
+      // Check if vendor is approved from the login response
+      const status = String(vendorUser.status || '').toLowerCase()
+      const isApproved = vendorUser.isApproved !== false && status !== 'pending' && status !== 'rejected' && status !== 'unapproved'
 
       // If vendor is not approved, block dashboard access and prompt pending message
-      if (!isApproved || vendorUser.isApproved === false) {
+      if (!isApproved) {
         vendorAuthService.logout()
         setIsApprovalModalOpen(true)
+        return
+      }
+
+      // Check if token exists in localStorage
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('Token not found. Login failed.')
+        vendorAuthService.logout()
         return
       }
 

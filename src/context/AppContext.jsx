@@ -61,7 +61,8 @@ export const AppProvider = ({ children }) => {
   // Synchronize dynamic coordinates to the backend if logged in
   useEffect(() => {
     const isLoggedIn = !!localStorage.getItem('token')
-    if (!isLoggedIn) return
+    const role = localStorage.getItem('role')
+    if (!isLoggedIn || role === 'vendor') return
 
     const syncLocationToBackend = async () => {
       try {
@@ -107,6 +108,8 @@ export const AppProvider = ({ children }) => {
 
   // Helper to fetch cart from API
   const fetchCart = useCallback(async () => {
+    const role = localStorage.getItem('role')
+    if (role === 'vendor') return
     try {
       const data = await cartService.getCart()
       if (data && data.success) {
@@ -150,6 +153,8 @@ export const AppProvider = ({ children }) => {
   // Sync Local Cart to Backend once user logs in
   const syncCartWithBackend = useCallback(async (loggedInUser) => {
     if (!loggedInUser) return
+    const role = localStorage.getItem('role')
+    if (role === 'vendor') return
     try {
       const localCartStr = localStorage.getItem('cart')
       if (localCartStr) {
@@ -181,7 +186,8 @@ export const AppProvider = ({ children }) => {
 
   // Sync cart when user profile/state changes
   useEffect(() => {
-    if (user) {
+    const role = localStorage.getItem('role')
+    if (user && role !== 'vendor') {
       syncCartWithBackend(user)
     }
   }, [user, syncCartWithBackend])
