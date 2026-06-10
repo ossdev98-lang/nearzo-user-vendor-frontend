@@ -7,8 +7,11 @@ import Button from '../../components/ui/Button'
 import dummyProduct from '../../assets/images/dummyProduct.jpg'
 
 const CartPage = () => {
-  const { cart, removeFromCart, updateQuantity, cartCount, cartTotal, clearCart } = useApp()
+  const { cart, removeFromCart, updateQuantity, cartCount, cartTotal, clearCart, cartDeliveryDetails } = useApp()
   const navigate = useNavigate()
+
+  const minOrderVal = cartDeliveryDetails?.minimum_free_order_amount || cartDeliveryDetails?.minOrderValue || cartDeliveryDetails?.minOrderAmount || cartDeliveryDetails?.min_order_value || cartDeliveryDetails?.min_order_amount || 0
+  const isMinOrderNotMet = minOrderVal > 0 && cartTotal < minOrderVal
   const [removingIds, setRemovingIds] = useState([])
 
   const handleRemove = async (itemId) => {

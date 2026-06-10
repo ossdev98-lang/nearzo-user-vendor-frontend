@@ -53,6 +53,7 @@ const VendorSettings = () => {
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [pincode, setPincode] = useState('')
+  const [address, setAddress] = useState('')
 
   // Notification toggle
   const [allowNotification, setAllowNotification] = useState(true)
@@ -61,6 +62,7 @@ const VendorSettings = () => {
   const [orderAcceptanceRange, setOrderAcceptanceRange] = useState('5')
   const [deliveryChargePerKm, setDeliveryChargePerKm] = useState('30')
   const [freeDeliveryKm, setFreeDeliveryKm] = useState('1')
+  const [minOrderValue, setMinOrderValue] = useState('0')
   const [savingOrderSettings, setSavingOrderSettings] = useState(false)
 
   useEffect(() => {
@@ -103,10 +105,17 @@ const VendorSettings = () => {
           setCity(profile.city || '')
           setState(profile.state || '')
           setPincode(profile.pincode || '')
+          setAddress(profile.address || '')
           setAllowNotification(profile.allowNotification !== undefined ? profile.allowNotification : true)
           setOrderAcceptanceRange(profile.orderAcceptanceRange !== undefined ? profile.orderAcceptanceRange : '5')
           setDeliveryChargePerKm(profile.delivery_charge_per_km !== undefined ? profile.delivery_charge_per_km : '30')
           setFreeDeliveryKm(profile.freeDeliveryKm !== undefined ? profile.freeDeliveryKm : '1')
+          setMinOrderValue(
+            profile.minimum_free_order_amount !== undefined ? profile.minimum_free_order_amount :
+              profile.minOrderValue !== undefined ? profile.minOrderValue :
+                profile.minOrderAmount !== undefined ? profile.minOrderAmount :
+                  profile.min_order_value !== undefined ? profile.min_order_value : '0'
+          )
 
           if (profile.shopCategoryId) {
             setShopCategoryId(profile.shopCategoryId)
@@ -145,14 +154,24 @@ const VendorSettings = () => {
       const payload = {
         orderAcceptanceRange: parseFloat(orderAcceptanceRange) || 0,
         delivery_charge_per_km: parseFloat(deliveryChargePerKm) || 0,
-        freeDeliveryKm: parseFloat(freeDeliveryKm) || 0
+        freeDeliveryKm: parseFloat(freeDeliveryKm) || 0,
+        minOrderValue: parseFloat(minOrderValue) || 0,
+        minOrderAmount: parseFloat(minOrderValue) || 0,
+        min_order_value: parseFloat(minOrderValue) || 0,
+        min_order_amount: parseFloat(minOrderValue) || 0,
+        minimum_free_order_amount: parseFloat(minOrderValue) || 0
       }
       await vendorService.updateOrderSettings(payload)
       const updatedUser = {
         ...user,
         orderAcceptanceRange: payload.orderAcceptanceRange,
         delivery_charge_per_km: payload.delivery_charge_per_km,
-        freeDeliveryKm: payload.freeDeliveryKm
+        freeDeliveryKm: payload.freeDeliveryKm,
+        minOrderValue: payload.minOrderValue,
+        minOrderAmount: payload.minOrderAmount,
+        min_order_value: payload.min_order_value,
+        min_order_amount: payload.min_order_amount,
+        minimum_free_order_amount: payload.minimum_free_order_amount
       }
       setUser(updatedUser)
       localStorage.setItem('user', JSON.stringify(updatedUser))
@@ -190,6 +209,7 @@ const VendorSettings = () => {
       formDataToSend.append('city', city)
       formDataToSend.append('state', state)
       formDataToSend.append('pincode', pincode)
+      formDataToSend.append('address', address)
       if (shopCategoryId) {
         formDataToSend.append('shopCategoryId', shopCategoryId)
       }
@@ -214,7 +234,11 @@ const VendorSettings = () => {
         longitude,
         orderAcceptanceRange: deliveryRange,
         logo: logoFile ? URL.createObjectURL(logoFile) : logo,
-        banner: bannerFile ? URL.createObjectURL(bannerFile) : banner
+        banner: bannerFile ? URL.createObjectURL(bannerFile) : banner,
+        city,
+        state,
+        pincode,
+        address
       }
       setUser(updatedUser)
       localStorage.setItem('user', JSON.stringify(updatedUser))
@@ -510,8 +534,8 @@ const VendorSettings = () => {
                                                   setIsCategoryDropdownOpen(false)
                                                 }}
                                                 className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center justify-between border-none bg-transparent cursor-pointer ${isSelected
-                                                    ? 'bg-purple-50 dark:bg-purple-950/20 text-[#6C4CF1]'
-                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                                  ? 'bg-purple-50 dark:bg-purple-950/20 text-[#6C4CF1]'
+                                                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'
                                                   }`}
                                               >
                                                 <span>{cat.shopCategoryName}</span>
@@ -531,6 +555,17 @@ const VendorSettings = () => {
                           {/* Address Info */}
                           <div>
                             <p className="text-[10px] font-black text-[#6C4CF1] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-50 dark:border-gray-800 pb-2"><MapPin className="w-3.5 h-3.5" /> Shop Address & Location</p>
+                            <div className="grid grid-cols-1 gap-4 mb-4">
+                              <div>
+                                <label className={labelCls}>Full Address</label>
+                                <textarea
+                                  value={address}
+                                  onChange={e => setAddress(e.target.value)}
+                                  className={inputCls + " resize-none h-20"}
+                                  placeholder="e.g. Shop No. 12, Ground Floor, Near Main Market"
+                                />
+                              </div>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                               <div><label className={labelCls}>City</label><input value={city} onChange={e => setCity(e.target.value)} className={inputCls} placeholder="City name" /></div>
                               <div><label className={labelCls}>State</label><input value={state} onChange={e => setState(e.target.value)} className={inputCls} placeholder="State name" /></div>
@@ -584,7 +619,7 @@ const VendorSettings = () => {
                       </div>
 
                       <div className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div>
                             <label className={labelCls}>Order Acceptance Range (KM)</label>
                             <input
@@ -615,6 +650,17 @@ const VendorSettings = () => {
                               onChange={e => setFreeDeliveryKm(e.target.value)}
                               className={inputCls}
                               placeholder="e.g. 1"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Minimum Order Amount (₹)</label>
+                            <input
+                              type="number"
+                              value={minOrderValue}
+                              onChange={e => setMinOrderValue(e.target.value)}
+                              className={inputCls}
+                              placeholder="e.g. 100"
                               required
                             />
                           </div>

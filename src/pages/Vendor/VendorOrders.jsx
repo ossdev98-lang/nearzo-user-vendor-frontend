@@ -68,10 +68,15 @@ const VendorOrders = () => {
   const handleToggleVoicePlayback = (orderId, voiceInstruction) => {
     if (!voiceInstruction) return
 
-    // Fallback if dummy_audio is provided
-    const audioUrl = voiceInstruction === 'dummy_audio'
+    let audioUrl = voiceInstruction === 'dummy_audio'
       ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
       : voiceInstruction
+
+    if (audioUrl && audioUrl !== 'dummy_audio' && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://') && !audioUrl.startsWith('blob:')) {
+      const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com';
+      audioUrl = `${baseUrlForImage.replace(/\/$/, '')}/${audioUrl.replace(/^\//, '')}`;
+    }
+    console.log('Playing audio from URL:', audioUrl)
 
     if (playingAudioId === orderId && currentAudio) {
       currentAudio.pause()
@@ -118,7 +123,7 @@ const VendorOrders = () => {
           const processing = Array.isArray(data.processingOrders) ? data.processingOrders : []
           const delivered = Array.isArray(data.deliveredOrders) ? data.deliveredOrders : []
           const cancelled = Array.isArray(data.cancelledOrders) ? data.cancelledOrders : []
-          
+
           rawOrdersArray = [
             ...pending,
             ...confirmed,
@@ -181,6 +186,12 @@ const VendorOrders = () => {
           email: o.customer?.email || o.user?.email || '',
           price: cleanPrice(o.total || o.totalPrice || o.price),
           subtotal: cleanPrice(o.subtotal || o.total || 0),
+          deliveryCharge: cleanPrice(
+            o.deliveryCharge !== undefined ? o.deliveryCharge :
+              o.delivery_charge !== undefined ? o.delivery_charge :
+                o.deliveryFee !== undefined ? o.deliveryFee :
+                  o.delivery_fee !== undefined ? o.delivery_fee : 0
+          ),
           status: o.status || 'pending',
           type: mappedType,
           notes: o.notes || '',
@@ -220,7 +231,7 @@ const VendorOrders = () => {
     try {
       await vendorService.updateOrderStatus(orderId, newStatus)
       toast.success(`Order status updated to ${newStatus}`)
-      
+
       // Update local state immediately
       let mappedType = 'new'
       if (newStatus === 'confirmed') {
@@ -233,10 +244,10 @@ const VendorOrders = () => {
         mappedType = 'cancelled'
       }
 
-      setOrders(prev => prev.map(o => o.rawId === orderId || o.id === orderId ? { 
-        ...o, 
-        status: newStatus, 
-        type: mappedType 
+      setOrders(prev => prev.map(o => o.rawId === orderId || o.id === orderId ? {
+        ...o,
+        status: newStatus,
+        type: mappedType
       } : o))
     } catch (err) {
       toast.error('Failed to update status')
@@ -249,8 +260,8 @@ const VendorOrders = () => {
     const status = String(currentStatus).toLowerCase()
     if (status === 'pending') {
       return [
-        { label: 'Confirm', value: 'confirmed' },
-        { label: 'Cancel', value: 'cancelled' }
+        { label: 'Accept', value: 'Accepted' },
+        { label: 'Reject', value: 'Rejected' }
       ]
     }
     if (status === 'confirmed') {
@@ -524,9 +535,9 @@ const VendorOrders = () => {
                           <span className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full
                             ${order.type === 'completed' ? 'bg-green-50 text-green-600 dark:bg-green-950/20'
                               : order.type === 'processing' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20'
-                              : order.type === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
-                              : order.type === 'new' ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
-                              : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}>
+                                : order.type === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
+                                  : order.type === 'new' ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
+                                    : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}>
                             {order.status}
                           </span>
                         </td>
@@ -616,8 +627,8 @@ const VendorOrders = () => {
                               <button
                                 onClick={() => handleToggleVoicePlayback(order.id, order.voiceInstruction)}
                                 className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase flex items-center gap-1 cursor-pointer border transition-all ${playingAudioId === order.id
-                                    ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/20'
-                                    : 'bg-purple-50 text-[#6C4CF1] border-purple-100/10 dark:bg-purple-900/10'
+                                  ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/20'
+                                  : 'bg-purple-50 text-[#6C4CF1] border-purple-100/10 dark:bg-purple-900/10'
                                   }`}
                               >
                                 {playingAudioId === order.id ? (
@@ -678,126 +689,244 @@ const VendorOrders = () => {
               initial={{ scale: 0.92, y: 20, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.92, y: 20, opacity: 0 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-105 dark:border-gray-800">
                 <div>
-                  <h2 className="font-black text-sm text-gray-900 dark:text-white">Order Details</h2>
-                  <p className="text-[11px] font-bold text-[#6C4CF1] mt-0.5">{selectedOrder.id}</p>
-                </div>
-                <button onClick={() => setSelectedOrder(null)} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="px-5 py-4 space-y-3">
-                {/* Customer Info */}
-                <div className="bg-purple-50 dark:bg-purple-950/20 rounded-2xl p-4 space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-purple-600 mb-3">Customer Info</p>
-                  <div className="flex items-center gap-2 text-xs">
-                    <User className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="font-bold text-gray-800 dark:text-gray-200">{selectedOrder.customer}</span>
+                  <h2 className="font-black text-base text-gray-900 dark:text-white uppercase tracking-tight">Order Details</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs font-bold text-[#6C4CF1]">{selectedOrder.id}</p>
+                    <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-lg
+                      ${selectedOrder.type === 'completed' ? 'bg-green-50 text-green-600 dark:bg-green-950/20'
+                        : selectedOrder.type === 'processing' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20'
+                          : selectedOrder.type === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
+                            : selectedOrder.type === 'new' ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
+                              : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}>
+                      {selectedOrder.status}
+                    </span>
                   </div>
-                  {selectedOrder.phone && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <Phone className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-gray-600 dark:text-gray-400">{selectedOrder.phone}</span>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
+                    Ordered At: <span className="font-extrabold text-gray-650 dark:text-gray-300">{selectedOrder.time}</span>
+                  </p>
+                </div>
+
+                {/* Action Buttons & Close Icon */}
+                <div className="flex items-center gap-3">
+                  {getAvailableTransitions(selectedOrder.status).length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      {getAvailableTransitions(selectedOrder.status).map((transition) => {
+                        const val = transition.value.toLowerCase();
+                        const lbl = transition.label.toLowerCase();
+                        let btnColorClass = 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white';
+                        
+                        if (val === 'accepted' || lbl === 'accept') {
+                          btnColorClass = 'bg-green-600 hover:bg-green-700 text-white';
+                        } else if (val === 'rejected' || lbl === 'reject' || val === 'cancelled' || lbl === 'cancel') {
+                          btnColorClass = 'bg-red-600 hover:bg-red-700 text-white';
+                        }
+
+                        return (
+                          <button
+                            key={transition.value}
+                            disabled={updatingId === selectedOrder.rawId}
+                            onClick={() => {
+                              handleUpdateStatus(selectedOrder.rawId || selectedOrder.id, transition.value);
+                              setSelectedOrder(null);
+                            }}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 shadow-sm border-none ${btnColorClass}`}
+                          >
+                            {transition.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-2.5 py-1 bg-gray-50/50 dark:bg-gray-950 rounded-xl text-[10px] font-extrabold uppercase tracking-wide text-gray-400">
+                      Order Completed
                     </div>
                   )}
-                  {selectedOrder.email && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <Mail className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-gray-600 dark:text-gray-400">{selectedOrder.email}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Order Info Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">Payment</p>
-                    <span className={`text-[11px] font-extrabold ${ selectedOrder.paymentMethod === 'COD' ? 'text-yellow-600' : 'text-green-600'}`}>{selectedOrder.paymentMethod}</span>
-                    <p className="text-[9px] text-gray-400 mt-0.5 capitalize">{selectedOrder.paymentStatus}</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">Amount</p>
-                    <span className="text-[11px] font-extrabold text-gray-900 dark:text-white">{selectedOrder.price}</span>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">Status</p>
-                    <span className="text-[11px] font-extrabold text-gray-900 dark:text-white capitalize">{selectedOrder.status}</span>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">Time</p>
-                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{selectedOrder.time}</span>
-                  </div>
-                </div>
-
-                {/* Address */}
-                {selectedOrder.address && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-2">Delivery Address</p>
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-[#6C4CF1] shrink-0 mt-0.5" />
-                      <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{selectedOrder.address}</p>
-                    </div>
-                    {selectedOrder.pincode && <p className="text-[10px] text-gray-400 mt-1 ml-5">PIN: {selectedOrder.pincode}</p>}
-                  </div>
-                )}
-
-                {/* Notes */}
-                {selectedOrder.notes && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-2xl p-4">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-yellow-600 mb-1">Order Note</p>
-                    <p className="text-xs text-gray-700 dark:text-gray-300">{selectedOrder.notes}</p>
-                  </div>
-                )}
-
-                {/* Items */}
-                {selectedOrder.items?.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-3">Order Items ({selectedOrder.items.length})</p>
-                    <div className="space-y-2">
-                      {selectedOrder.items.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3">
-                          <div>
-                            <p className="text-xs font-bold text-gray-900 dark:text-white">{item.productName || item.name || `Item #${i+1}`}</p>
-                            <p className="text-[10px] text-gray-400">Qty: {item.quantity}</p>
-                          </div>
-                          <span className="text-xs font-black text-[#6C4CF1]">₹{item.price}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Voice Note */}
-                {selectedOrder.voiceInstruction && (
-                  <button
-                    onClick={() => handleToggleVoicePlayback(selectedOrder.id, selectedOrder.voiceInstruction)}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-extrabold text-xs uppercase border transition-all cursor-pointer ${ playingAudioId === selectedOrder.id ? 'bg-red-50 text-red-600 border-red-200' : 'bg-purple-50 text-[#6C4CF1] border-purple-100'}`}
-                  >
-                    {playingAudioId === selectedOrder.id ? <><Pause className="w-3.5 h-3.5" /> Stop Playing</> : <><Play className="w-3.5 h-3.5" /> Play Voice Note</>}
+                  <button onClick={() => setSelectedOrder(null)} className="p-2 rounded-xl hover:bg-gray-105 dark:hover:bg-gray-800 transition-colors cursor-pointer border-none bg-transparent">
+                    <X className="w-5 h-5 text-gray-500" />
                   </button>
-                )}
+                </div>
+              </div>
+              <div className="p-6">
 
-                {/* Quick Actions */}
-                {getAvailableTransitions(selectedOrder.status).length > 0 && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    {getAvailableTransitions(selectedOrder.status).map((transition) => (
-                      <button
-                        key={transition.value}
-                        disabled={updatingId === selectedOrder.rawId}
-                        onClick={() => { handleUpdateStatus(selectedOrder.rawId || selectedOrder.id, transition.value); setSelectedOrder(null) }}
-                        className="flex-1 py-2.5 rounded-2xl text-xs font-extrabold uppercase bg-[#6C4CF1] text-white hover:bg-purple-700 transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {transition.label}
-                      </button>
-                    ))}
+                {/* 2 Column Layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Customer & Delivery Info */}
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-450 dark:text-gray-500">Customer & Delivery</span>
+                    </div>
+
+                    <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-105 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+                      {/* Customer details */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-xs">
+                          <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-[#6C4CF1] shrink-0">
+                            <User className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Customer Name</p>
+                            <span className="font-extrabold text-gray-850 dark:text-gray-255 truncate block">{selectedOrder.customer}</span>
+                          </div>
+                        </div>
+
+                        {selectedOrder.phone && (
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
+                              <Phone className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Phone</p>
+                              <span className="font-bold text-gray-700 dark:text-gray-300 block">{selectedOrder.phone}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedOrder.email && (
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
+                              <Mail className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Email Address</p>
+                              <span className="font-bold text-gray-700 dark:text-gray-300 truncate block">{selectedOrder.email}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedOrder.address && (
+                        <div className="border-t border-gray-105 dark:border-gray-800/80 pt-4 space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Delivery Address</p>
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-[#6C4CF1] shrink-0 mt-0.5" />
+                            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed font-semibold">{selectedOrder.address}</p>
+                          </div>
+                          {selectedOrder.pincode && (
+                            <p className="text-[10px] text-gray-455 dark:text-gray-500 font-bold ml-5.5 uppercase">Pincode: {selectedOrder.pincode}</p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="border-t border-gray-105 dark:border-gray-800/80 pt-4 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Payment</p>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 font-bold">Method:</span>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg font-black text-[9px] uppercase
+                            ${selectedOrder.paymentMethod === 'COD' ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-950/20' : 'bg-green-50 text-green-600 dark:bg-green-950/20'}`}>
+                            {selectedOrder.paymentMethod}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 font-bold">Status:</span>
+                          <span className="font-extrabold capitalize text-gray-700 dark:text-gray-300">{selectedOrder.paymentStatus}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  {/* Right Column: Order Items */}
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-455 dark:text-gray-500">Order Items</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950/30 text-[#6C4CF1] rounded-lg text-[9px] font-black">
+                        {selectedOrder.items?.length || 0} {selectedOrder.items?.length === 1 ? 'item' : 'items'}
+                      </span>
+                    </div>
+
+                    <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-105 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+                      {selectedOrder.items?.length > 0 ? (
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                          {selectedOrder.items.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between bg-white dark:bg-gray-950 border border-gray-100/60 dark:border-gray-800/40 rounded-xl px-3.5 py-3 hover:border-purple-200 transition-colors">
+                              <div className="min-w-0 flex-1 mr-3 text-left">
+                                <p className="text-xs font-extrabold text-gray-950 dark:text-white truncate" title={item.productName || item.name}>
+                                  {item.productName || item.name || `Item #${i + 1}`}
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-bold mt-0.5">Qty: {item.quantity}</p>
+                              </div>
+                              <span className="text-xs font-black text-[#6C4CF1] shrink-0">₹{item.price}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-450 italic">No items listed in this order.</p>
+                      )}
+
+                      {/* Summary / Total Box */}
+                      <div className="border-t border-gray-105 dark:border-gray-800/80 pt-4 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-455 font-bold">Subtotal</span>
+                          <span className="font-extrabold text-gray-800 dark:text-gray-200">{selectedOrder.subtotal}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-455 font-bold">Delivery Fee</span>
+                          <span className="font-extrabold text-gray-800 dark:text-gray-200">
+                            {selectedOrder.deliveryCharge === '₹0' ? 'FREE' : selectedOrder.deliveryCharge}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm font-black pt-1 border-t border-dashed border-gray-105 dark:border-gray-850/50 mt-1">
+                          <span className="text-gray-900 dark:text-white">Grand Total</span>
+                          <span className="text-base font-black text-purple-600 dark:text-purple-400">{selectedOrder.price}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Instructions Section (Order Note / Voice Note) */}
+                    {(selectedOrder.notes || selectedOrder.voiceInstruction) && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-455 dark:text-gray-500">Instructions</span>
+                        </div>
+                        <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-105 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+
+                          {/* Order Note */}
+                          {selectedOrder.notes && (
+                            <div className="space-y-1.5 text-left">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">Order Note</p>
+                              <p className="text-xs text-gray-700 dark:text-gray-350 leading-relaxed font-semibold italic bg-amber-50/20 dark:bg-amber-955/10 border border-amber-100/10 rounded-xl p-3">
+                                "{selectedOrder.notes}"
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Voice Instruction Divider (only if both exist) */}
+                          {selectedOrder.notes && selectedOrder.voiceInstruction && (
+                            <div className="border-t border-gray-105 dark:border-gray-800/60" />
+                          )}
+
+                          {/* Voice Instruction */}
+                          {selectedOrder.voiceInstruction && (
+                            <button
+                              onClick={() => handleToggleVoicePlayback(selectedOrder.id, selectedOrder.voiceInstruction)}
+                              className={`w-fit flex items-center justify-start gap-2 px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase border transition-all cursor-pointer shadow-sm border-none
+                                ${playingAudioId === selectedOrder.id
+                                  ? 'bg-red-50 hover:bg-red-100 text-red-650 dark:bg-red-955/20'
+                                  : 'bg-purple-55 hover:bg-purple-105 text-[#6C4CF1] dark:bg-purple-900/15'}`}
+                            >
+                              {playingAudioId === selectedOrder.id ? (
+                                <><Pause className="w-3.5 h-3.5 fill-red-600" /> Stop Listening</>
+                              ) : (
+                                <><Play className="w-3.5 h-3.5 fill-[#6C4CF1] ml-0.5" /> Listen Voice Note</>
+                              )}
+                            </button>
+                          )}
+
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -50,6 +50,7 @@ const VendorProducts = () => {
   const [serverTotalCount, setServerTotalCount] = useState(0)
   const [isServerPaginated, setIsServerPaginated] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
   const [modalMode, setModalMode] = useState('add') // 'add' or 'edit'
   const [editingProduct, setEditingProduct] = useState(null)
   const [showAddDropdown, setShowAddDropdown] = useState(false)
@@ -163,38 +164,83 @@ const VendorProducts = () => {
   }
 
   // Open modal for editing existing product
-  const handleOpenEditModal = (product) => {
-    setModalMode('edit')
-    setEditingProduct(product)
-    
-    const cleanPriceValue = (val) => {
-      if (val === undefined || val === null) return 0
-      if (typeof val === 'string') {
-        return Number(val.replace(/[^0-9.]/g, '')) || 0
+  const handleOpenEditModal = async (product) => {
+    const pId = product.id || product._id
+    const loadToast = toast.loading('Fetching product details...')
+    try {
+      const response = await vendorService.getVendorProduct(pId)
+      const freshProduct = response?.vendorProduct || response?.data || response?.product || response || product
+      
+      setModalMode('edit')
+      setEditingProduct(freshProduct)
+      
+      const cleanPriceValue = (val) => {
+        if (val === undefined || val === null) return 0
+        if (typeof val === 'string') {
+          return Number(val.replace(/[^0-9.]/g, '')) || 0
+        }
+        return Number(val) || 0
       }
-      return Number(val) || 0
+
+      const rawVariants = freshProduct.variants || freshProduct.Product?.variants || []
+      
+      const initialVariants = (rawVariants && rawVariants.length > 0)
+        ? rawVariants.map(v => ({
+            variantId: v.variantId || v.id,
+            name: v.name || 'Default Variant',
+            price: cleanPriceValue(v.price),
+            discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+            isAvailable: v.isAvailable !== false,
+            image: v.image || (v.images && v.images[0])
+          }))
+        : [{
+            variantId: 'v-default',
+            name: 'Regular',
+            price: cleanPriceValue(freshProduct.Product?.price || freshProduct.price),
+            discountPrice: cleanPriceValue(freshProduct.discountPrice !== undefined && freshProduct.discountPrice !== null ? freshProduct.discountPrice : (freshProduct.Product?.price || freshProduct.price)),
+            isAvailable: freshProduct.isAvailable !== false && freshProduct.stock !== 0,
+            image: freshProduct.image || (freshProduct.images && freshProduct.images[0]) || freshProduct.Product?.primaryImage
+          }]
+
+      setEditableVariants(initialVariants)
+      setIsModalOpen(true)
+      toast.success('Product details loaded!', { id: loadToast })
+    } catch (err) {
+      console.error('Failed to load product details:', err)
+      toast.error('Failed to load details from server, using local copy.', { id: loadToast })
+      
+      setModalMode('edit')
+      setEditingProduct(product)
+      
+      const cleanPriceValue = (val) => {
+        if (val === undefined || val === null) return 0
+        if (typeof val === 'string') {
+          return Number(val.replace(/[^0-9.]/g, '')) || 0
+        }
+        return Number(val) || 0
+      }
+
+      const initialVariants = (product.variants && product.variants.length > 0)
+        ? product.variants.map(v => ({
+            variantId: v.variantId || v.id,
+            name: v.name || 'Default Variant',
+            price: cleanPriceValue(v.price),
+            discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+            isAvailable: v.isAvailable !== false,
+            image: v.image || (v.images && v.images[0])
+          }))
+        : [{
+            variantId: 'v-default',
+            name: 'Regular',
+            price: cleanPriceValue(product.Product?.price || product.price),
+            discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
+            isAvailable: product.isAvailable !== false && product.stock !== 0,
+            image: product.image || (product.images && product.images[0]) || product.Product?.primaryImage
+          }]
+
+      setEditableVariants(initialVariants)
+      setIsModalOpen(true)
     }
-
-    const initialVariants = (product.variants && product.variants.length > 0)
-      ? product.variants.map(v => ({
-          variantId: v.variantId || v.id,
-          name: v.name || 'Default Variant',
-          price: cleanPriceValue(v.price),
-          discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-          isAvailable: v.isAvailable !== false,
-          image: v.image || (v.images && v.images[0])
-        }))
-      : [{
-          variantId: 'v-default',
-          name: 'Regular',
-          price: cleanPriceValue(product.Product?.price || product.price),
-          discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
-          isAvailable: product.isAvailable !== false && product.stock !== 0,
-          image: product.image || (product.images && product.images[0]) || product.Product?.primaryImage
-        }]
-
-    setEditableVariants(initialVariants)
-    setIsModalOpen(true)
   }
 
   // Handle Form Submission for Add or Edit
@@ -265,7 +311,6 @@ const VendorProducts = () => {
 
   // Handle Product Deletion
   const handleDeleteProduct = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return
     try {
       await vendorService.deleteProduct(id)
       setProducts(prev => prev.filter(p => p.id !== id))
@@ -278,7 +323,19 @@ const VendorProducts = () => {
   // Helper to resolve product image from server
   const getProductImage = (prod) => {
     if (!prod) return null;
-    let imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
+    let imgPath = null;
+    
+    // Check first variant's image
+    const firstVariant = (prod.variants && prod.variants[0]) || (prod.Product?.variants && prod.Product.variants[0]);
+    if (firstVariant) {
+      imgPath = firstVariant.image || (firstVariant.images && firstVariant.images[0]?.url) || firstVariant.url;
+    }
+    
+    // Fallback to standard product image fields
+    if (!imgPath) {
+      imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
+    }
+
     if (!imgPath) return null;
     if (typeof imgPath === 'object') {
       imgPath = imgPath.url || imgPath.image || imgPath.path || '';
@@ -617,16 +674,12 @@ const VendorProducts = () => {
                     variantCount = prod.variants.length
                     totalStock = prod.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
                     
-                    const discountPrices = prod.variants.map(v => v.discountPrice !== null && v.discountPrice !== undefined ? v.discountPrice : v.price)
-                    const originalPrices = prod.variants.map(v => v.price)
+                    const firstV = prod.variants[0]
+                    const discPrice = firstV.discountPrice !== null && firstV.discountPrice !== undefined ? firstV.discountPrice : firstV.price
+                    const origPrice = firstV.price
                     
-                    const minDisc = Math.min(...discountPrices)
-                    const maxDisc = Math.max(...discountPrices)
-                    priceDisplay = minDisc === maxDisc ? `₹${minDisc}` : `₹${minDisc} - ₹${maxDisc}`
-                    
-                    const minOrig = Math.min(...originalPrices)
-                    const maxOrig = Math.max(...originalPrices)
-                    originalPriceDisplay = minOrig === maxOrig ? `₹${minOrig}` : `₹${minOrig} - ₹${maxOrig}`
+                    priceDisplay = `₹${discPrice}`
+                    originalPriceDisplay = `₹${origPrice}`
                   } else {
                     const origPrice = prod.price || prod.Product?.price || 0
                     const cleanPrice = typeof origPrice === 'string' ? Number(origPrice.replace(/[^0-9.]/g, '')) || 0 : Number(origPrice)
@@ -659,6 +712,14 @@ const VendorProducts = () => {
                           </span>
                           <h4 className="font-extrabold text-sm text-gray-950 dark:text-white line-clamp-1" title={name}>{name}</h4>
                           
+                          {/* Price Display */}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-sm font-black text-[#6C4CF1]">{priceDisplay}</span>
+                            {hasVariants && prod.variants[0]?.name && (
+                              <span className="text-[10px] text-gray-400 font-bold">({prod.variants[0].name})</span>
+                            )}
+                          </div>
+                          
                           <div className="flex items-start justify-between mt-2">
                             <div className="flex flex-col text-left">
                               {hasVariants ? (
@@ -667,17 +728,27 @@ const VendorProducts = () => {
                                 <span className="text-[10px] text-gray-400 font-bold mt-0.5">Simple Product</span>
                               )}
                             </div>
-                            {/* Actions area with premium Edit button */}
-                            <div className="shrink-0">
+                            {/* Actions area with premium Edit & Delete buttons */}
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleOpenEditModal(prod)
                                 }}
-                                className="px-4 py-2 bg-purple-50 hover:bg-[#6C4CF1] dark:bg-purple-950/20 text-[#6C4CF1] hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-sm"
+                                className="px-3 py-2 bg-purple-50 hover:bg-[#6C4CF1] dark:bg-purple-950/20 text-[#6C4CF1] hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-sm"
                               >
                                 <Edit className="w-3 h-3" />
                                 Edit
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeleteConfirmId(prod.id)
+                                }}
+                                className="p-2 bg-red-50 hover:bg-red-500 dark:bg-red-950/20 text-red-600 hover:text-white rounded-xl transition-all border-none cursor-pointer flex items-center justify-center shadow-sm"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -812,8 +883,36 @@ const VendorProducts = () => {
                 <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {editableVariants.map((variant, index) => (
                     <div key={variant.variantId} className="p-3.5 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl space-y-3 transition-colors hover:border-purple-100/10">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={variant.isAvailable}
+                          onChange={async (e) => {
+                            const checked = e.target.checked
+                            const updated = [...editableVariants]
+                            updated[index].isAvailable = checked
+                            setEditableVariants(updated)
+                            
+                            if (editingProduct?.id) {
+                              const loadToast = toast.loading('Updating availability...')
+                              try {
+                                await vendorService.updateProductAvailability(editingProduct.id, checked)
+                                toast.success('Availability updated successfully!', { id: loadToast })
+                              } catch (err) {
+                                console.error(err)
+                                const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update availability.'
+                                toast.error(errMsg, { id: loadToast })
+                                
+                                // Revert state
+                                const reverted = [...updated]
+                                reverted[index].isAvailable = !checked
+                                setEditableVariants(reverted)
+                              }
+                            }
+                          }}
+                          className="w-6 h-6 text-[#6C4CF1] rounded-md border-gray-300 dark:border-gray-700 focus:ring-[#6C4CF1] cursor-pointer shrink-0 accent-[#6C4CF1]"
+                        />
+                        <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-purple-100/20 bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
                             {getProductImage(variant) ? (
                               <img src={getProductImage(variant)} alt={variant.name} className="w-full h-full object-cover" />
@@ -821,41 +920,8 @@ const VendorProducts = () => {
                               <Package className="w-4 h-4 text-[#6C4CF1]" />
                             )}
                           </div>
-                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide truncate">{variant.name}</span>
                         </div>
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={variant.isAvailable}
-                            onChange={async (e) => {
-                              const checked = e.target.checked
-                              const updated = [...editableVariants]
-                              updated[index].isAvailable = checked
-                              setEditableVariants(updated)
-                              
-                              if (editingProduct?.id) {
-                                const loadToast = toast.loading('Updating availability...')
-                                try {
-                                  await vendorService.updateProductAvailability(editingProduct.id, checked)
-                                  toast.success('Availability updated successfully!', { id: loadToast })
-                                } catch (err) {
-                                  console.error(err)
-                                  const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update availability.'
-                                  toast.error(errMsg, { id: loadToast })
-                                  
-                                  // Revert state
-                                  const reverted = [...updated]
-                                  reverted[index].isAvailable = !checked
-                                  setEditableVariants(reverted)
-                                }
-                              }
-                            }}
-                            className="w-4.5 h-4.5 text-[#6C4CF1] rounded-lg border-gray-300 dark:border-gray-700 focus:ring-[#6C4CF1] cursor-pointer"
-                          />
-                          <span className={`text-[9px] font-extrabold uppercase tracking-wider transition-colors ${variant.isAvailable ? 'text-emerald-600' : 'text-gray-400'}`}>
-                            {variant.isAvailable ? 'In Stock' : 'Out of Stock'}
-                          </span>
-                        </label>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3.5">
@@ -892,6 +958,65 @@ const VendorProducts = () => {
                   Save Changes
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirmId(null)}
+              className="absolute inset-0 bg-black/45 backdrop-blur-md"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 w-[92%] sm:w-full sm:max-w-sm rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl p-6 relative z-10 space-y-5 text-center text-gray-800 dark:text-gray-100"
+            >
+              {/* Warning/Trash Icon */}
+              <div className="mx-auto w-14 h-14 bg-red-50 dark:bg-red-950/20 rounded-2xl flex items-center justify-center text-red-600">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              {/* Title & Description */}
+              <div className="space-y-2 text-center">
+                <h3 className="font-black text-base tracking-tight text-gray-955 dark:text-white uppercase">
+                  Delete Product?
+                </h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-bold leading-relaxed">
+                  Are you sure you want to delete this product? This action is permanent and cannot be undone.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3.5 pt-2">
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="w-full py-3 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-[18px] text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const id = deleteConfirmId
+                    setDeleteConfirmId(null)
+                    await handleDeleteProduct(id)
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-[18px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-red-600/10 border-none cursor-pointer"
+                >
+                  Delete
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

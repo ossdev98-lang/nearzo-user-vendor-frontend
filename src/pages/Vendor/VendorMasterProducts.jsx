@@ -37,7 +37,17 @@ const VendorMasterProducts = () => {
 
   const getProductImage = (prod) => {
     if (!prod) return null;
-    let imgPath = prod.image || (prod.images && prod.images[0]);
+    
+    let imgPath = null;
+    if (prod.variants && prod.variants.length > 0) {
+      const firstV = prod.variants[0];
+      imgPath = firstV.image || (firstV.images && firstV.images[0]);
+    }
+    
+    if (!imgPath) {
+      imgPath = prod.image || (prod.images && prod.images[0]);
+    }
+
     if (!imgPath) return null;
     if (typeof imgPath === 'object') {
       imgPath = imgPath.url || imgPath.image || imgPath.path || '';
@@ -48,6 +58,11 @@ const VendorMasterProducts = () => {
     return `${baseUrlForImage.replace(/\/$/, '')}/${imgPath.replace(/^\//, '')}`;
   }
 
+  const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
   // States
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +71,6 @@ const VendorMasterProducts = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [importingProduct, setImportingProduct] = useState(null)
-  const [importingVendorProductId, setImportingVendorProductId] = useState(null)
   const [editableVariants, setEditableVariants] = useState([])
 
   const fetchMasterProducts = async () => {
@@ -94,89 +108,68 @@ const VendorMasterProducts = () => {
     navigate('/vendor/login')
   }
 
-  const handleOpenImportModal = async (product) => {
-    const loadToast = toast.loading('Initializing product mapping...')
-    try {
-      const pId = product.id || product._id
-      const response = await vendorService.addProduct({ productId: pId })
-      
-      const vendorProductId = response?.id || response?.vendorProduct?.id || (response?.data && (response.data.id || response.data.vendorProduct?.id))
-      
-      if (!vendorProductId) {
-        throw new Error('No vendor product ID returned from API')
+  const handleOpenImportModal = (product) => {
+    const cleanPriceValue = (val) => {
+      if (val === undefined || val === null) return 0
+      if (typeof val === 'string') {
+        return Number(val.replace(/[^0-9.]/g, '')) || 0
       }
-
-      setImportingVendorProductId(vendorProductId)
-      
-      const cleanPriceValue = (val) => {
-        if (val === undefined || val === null) return 0
-        if (typeof val === 'string') {
-          return Number(val.replace(/[^0-9.]/g, '')) || 0
-        }
-        return Number(val) || 0
-      }
-
-      // Initialize the variants list for editing
-      const vendorProduct = response?.vendorProduct || response?.data?.vendorProduct || response
-      const apiVariants = vendorProduct?.variants || product.variants || []
-
-      const initialVariants = (apiVariants && apiVariants.length > 0) 
-        ? apiVariants.map(v => ({
-            variantId: v.variantId || v.id,
-            name: v.name || 'Default Variant',
-            price: cleanPriceValue(v.price),
-            discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-            isAvailable: v.isAvailable !== false,
-            image: v.image || (v.images && v.images[0])
-          }))
-        : [{
-            variantId: 'v-default',
-            name: 'Regular',
-            price: cleanPriceValue(product.price),
-            discountPrice: cleanPriceValue(product.price),
-            isAvailable: true,
-            image: product.image || (product.images && product.images[0])
-          }]
-
-      setEditableVariants(initialVariants)
-      setImportingProduct(product)
-      toast.success('Product mapping initialized!', { id: loadToast })
-    } catch (err) {
-      console.error(err)
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to initialize product mapping'
-      toast.error(errMsg, { id: loadToast })
+      return Number(val) || 0
     }
+
+    // Initialize the variants list for editing using catalog product's variants
+    const apiVariants = product.variants || []
+
+    const initialVariants = (apiVariants && apiVariants.length > 0) 
+      ? apiVariants.map(v => ({
+          variantId: v.variantId || v.id,
+          name: v.name || 'Default Variant',
+          price: cleanPriceValue(v.price),
+          discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+          isAvailable: false,
+          image: v.image || (v.images && v.images[0])
+        }))
+      : [{
+          variantId: 'v-default',
+          name: 'Regular',
+          price: cleanPriceValue(product.price),
+          discountPrice: cleanPriceValue(product.price),
+          isAvailable: false,
+          image: product.image || (product.images && product.images[0])
+        }]
+
+    setEditableVariants(initialVariants)
+    setImportingProduct(product)
   }
 
   const handleImportSubmit = async (e) => {
     e.preventDefault()
     
-    const hasActualVariants = importingProduct.variants && importingProduct.variants.length > 0
+    const pId = importingProduct.id || importingProduct._id
     
-    let payload = {}
-    if (hasActualVariants) {
-      payload = {
-        variants: editableVariants.map(v => ({
-          variantId: v.variantId,
-          discountPrice: Number(v.discountPrice),
-          isAvailable: v.isAvailable
-        }))
-      }
-    } else {
-      const mainVariant = editableVariants[0] || {}
-      payload = {
-        discountPrice: Number(mainVariant.discountPrice),
-        isAvailable: mainVariant.isAvailable,
-        stock: mainVariant.isAvailable ? 100 : 0
-      }
+    // Check if at least one variant checkbox is selected/checked
+    const hasCheckedVariant = editableVariants.some(v => v.isAvailable)
+    if (!hasCheckedVariant) {
+      toast.error('Please select at least one variant to add to store!')
+      return
+    }
+    
+    // Construct payload: { productId, variants: [ { variantId, discountPrice, isAvailable } ] }
+    const payload = {
+      productId: Number(pId),
+      variants: editableVariants.map(v => ({
+        variantId: String(v.variantId),
+        discountPrice: Number(v.discountPrice),
+        isAvailable: v.isAvailable
+      }))
     }
 
     const loadToast = toast.loading('Saving variants and listing item on store...')
     try {
-      await vendorService.updateProduct(importingVendorProductId, payload)
+      await vendorService.addProduct(payload)
       toast.success(`${importingProduct.name} imported to your catalog!`, { id: loadToast })
+      setProducts(prev => prev.filter(p => (p.id || p._id) !== pId))
       setImportingProduct(null)
-      setImportingVendorProductId(null)
       setEditableVariants([])
     } catch (err) {
       console.error(err)
@@ -372,16 +365,21 @@ const VendorMasterProducts = () => {
                       <div className="space-y-1 text-left">
                         <h4 className="font-extrabold text-xs text-gray-950 dark:text-white line-clamp-1">{prod.name}</h4>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 line-clamp-1 h-4 font-semibold">
-                          {prod.description || 'Verified master product catalog listing.'}
+                          {stripHtml(prod.description) || 'Verified master product catalog listing.'}
                         </p>
                         <div className="flex items-center justify-between border-t border-purple-50/5 pt-2 mt-1">
                           <div className="flex flex-col">
                             <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Base Price</span>
-                            <span className="text-xs font-black text-purple-650">{prod.price ? `₹${prod.price}` : 'N/A'}</span>
+                            <span className="text-xs font-black text-purple-650">
+                              {(() => {
+                                const price = (prod.variants && prod.variants.length > 0) 
+                                  ? prod.variants[0].price 
+                                  : prod.price;
+                                if (price === undefined || price === null || price === '') return 'N/A';
+                                return `₹${price}`;
+                              })()}
+                            </span>
                           </div>
-                          <span className="text-[8px] bg-emerald-50 dark:bg-green-955/20 text-emerald-650 px-1.5 py-0.5 rounded-full font-bold">
-                            Verified
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -513,8 +511,19 @@ const VendorMasterProducts = () => {
                 <div className="max-h-[280px] overflow-y-auto space-y-3 pr-1 scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {editableVariants.map((variant, index) => (
                     <div key={variant.variantId} className="p-3.5 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-800 rounded-2xl space-y-3 transition-colors hover:border-purple-100/10">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={variant.isAvailable}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            const updated = [...editableVariants]
+                            updated[index].isAvailable = checked
+                            setEditableVariants(updated)
+                          }}
+                          className="w-6 h-6 text-[#6C4CF1] rounded-md border-gray-300 dark:border-gray-700 focus:ring-[#6C4CF1] cursor-pointer shrink-0 accent-[#6C4CF1]"
+                        />
+                        <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-purple-100/20 bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
                             {getProductImage(variant) ? (
                               <img src={getProductImage(variant)} alt={variant.name} className="w-full h-full object-cover" />
@@ -522,41 +531,8 @@ const VendorMasterProducts = () => {
                               <Package className="w-4 h-4 text-[#6C4CF1]" />
                             )}
                           </div>
-                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                          <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide truncate">{variant.name}</span>
                         </div>
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={variant.isAvailable}
-                            onChange={async (e) => {
-                              const checked = e.target.checked
-                              const updated = [...editableVariants]
-                              updated[index].isAvailable = checked
-                              setEditableVariants(updated)
-                              
-                              if (importingVendorProductId) {
-                                const loadToast = toast.loading('Updating availability...')
-                                try {
-                                  await vendorService.updateProductAvailability(importingVendorProductId, checked)
-                                  toast.success('Availability updated successfully!', { id: loadToast })
-                                } catch (err) {
-                                  console.error(err)
-                                  const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update availability.'
-                                  toast.error(errMsg, { id: loadToast })
-                                  
-                                  // Revert state
-                                  const reverted = [...updated]
-                                  reverted[index].isAvailable = !checked
-                                  setEditableVariants(reverted)
-                                }
-                              }
-                            }}
-                            className="w-4.5 h-4.5 text-[#6C4CF1] rounded-lg border-gray-300 dark:border-gray-700 focus:ring-[#6C4CF1] cursor-pointer"
-                          />
-                          <span className={`text-[9px] font-extrabold uppercase tracking-wider transition-colors ${variant.isAvailable ? 'text-emerald-600' : 'text-gray-400'}`}>
-                            {variant.isAvailable ? 'In Stock' : 'Out of Stock'}
-                          </span>
-                        </label>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3.5">

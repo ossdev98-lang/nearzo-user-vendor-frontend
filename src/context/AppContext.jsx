@@ -120,7 +120,9 @@ export const AppProvider = ({ children }) => {
           const productInfo = item.Product || {}
           let imgUrl = dummyProduct
 
-          if (item.image) {
+          if (item.productImage) {
+            imgUrl = item.productImage.startsWith('http') ? item.productImage : `${baseUrlForImage}${item.productImage}`
+          } else if (item.image) {
             imgUrl = item.image.startsWith('http') ? item.image : `${baseUrlForImage}${item.image}`
           } else if (productInfo.primaryImage) {
             imgUrl = productInfo.primaryImage.startsWith('http') ? productInfo.primaryImage : `${baseUrlForImage}${productInfo.primaryImage}`

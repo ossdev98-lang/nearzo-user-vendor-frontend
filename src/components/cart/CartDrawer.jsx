@@ -10,6 +10,9 @@ const CartDrawer = () => {
   const navigate = useNavigate()
   const [removingIds, setRemovingIds] = useState([])
 
+  const minOrderVal = cartDeliveryDetails?.minimum_free_order_amount || cartDeliveryDetails?.minOrderValue || cartDeliveryDetails?.minOrderAmount || cartDeliveryDetails?.min_order_value || cartDeliveryDetails?.min_order_amount || 0
+  const isMinOrderNotMet = minOrderVal > 0 && cartTotal < minOrderVal
+
   const handleRemove = async (itemId) => {
     setRemovingIds(prev => [...prev, itemId])
     try {
@@ -169,34 +172,65 @@ const CartDrawer = () => {
             {/* Footer / Checkout */}
             {cart.length > 0 && (
               <div className="p-5 sm:p-6 bg-gray-50 dark:bg-gray-950/50 border-t border-gray-100 dark:border-white/5">
-                {/* Delivery Information Banner */}
-                {cartDeliveryDetails && (
-                  <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-xl text-xs flex flex-col gap-1.5 text-purple-700 dark:text-purple-300 font-medium">
-                    <div className="flex justify-between items-center">
-                      <span>Store Distance:</span>
-                      <span className="font-bold text-gray-900 dark:text-white">{cartDeliveryDetails.distanceKm} km</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Free Delivery Radius:</span>
-                      <span className="font-bold text-green-600 dark:text-emerald-400">First {cartDeliveryDetails.freeDeliveryKm} km FREE</span>
-                    </div>
-                    {cartDeliveryDetails.deliveryCharge > 0 ? (
-                      <>
-                        <div className="flex justify-between items-center text-red-500 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
-                          <span>Chargeable Distance:</span>
-                          <span>{cartDeliveryDetails.chargeableKm} km</span>
-                        </div>
-                        <p className="text-[9.5px] text-gray-500 dark:text-gray-400 leading-normal">
-                          *Rate: ₹{cartDeliveryDetails.delivery_charge_per_km}/km for the distance beyond the free limit ({cartDeliveryDetails.freeDeliveryKm} km).
-                        </p>
-                      </>
-                    ) : (
-                      <div className="flex justify-between items-center text-green-600 dark:text-emerald-400 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
-                        <span>Delivery Status:</span>
-                        <span className="bg-green-100 dark:bg-emerald-950/50 px-2 py-0.5 rounded text-[10px]">FREE DELIVERY 🎉</span>
+                {/* Delivery Information Banner / Progress Banner switch */}
+                {isMinOrderNotMet ? (
+                  <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/30 dark:border-emerald-900/30 rounded-xl">
+                    <div className="flex flex-row justify-between items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="1" y="3" width="15" height="13" />
+                          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                          <circle cx="5.5" cy="18.5" r="2.5" />
+                          <circle cx="18.5" cy="18.5" r="2.5" />
+                        </svg>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-350 leading-tight">
+                          Yay! You are ₹{minOrderVal - cartTotal} away from FREE delivery
+                        </span>
                       </div>
-                    )}
+                      <button 
+                        onClick={() => setIsCartOpen(false)}
+                        className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors border-none bg-transparent cursor-pointer uppercase tracking-wider shrink-0 font-sans"
+                      >
+                        Add more items
+                      </button>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-emerald-100 dark:bg-emerald-950/80 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-emerald-600 dark:bg-emerald-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, (cartTotal / minOrderVal) * 100)}%` }}
+                      />
+                    </div>
                   </div>
+                ) : (
+                  cartDeliveryDetails && (
+                    <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-xl text-xs flex flex-col gap-1.5 text-purple-700 dark:text-purple-300 font-medium">
+                      <div className="flex justify-between items-center">
+                        <span>Store Distance:</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{cartDeliveryDetails.distanceKm} km</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Free Delivery Radius:</span>
+                        <span className="font-bold text-green-600 dark:text-emerald-400">First {cartDeliveryDetails.freeDeliveryKm} km FREE</span>
+                      </div>
+                      {cartDeliveryDetails.deliveryCharge > 0 ? (
+                        <>
+                          <div className="flex justify-between items-center text-red-500 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                            <span>Chargeable Distance:</span>
+                            <span>{cartDeliveryDetails.chargeableKm} km</span>
+                          </div>
+                          <p className="text-[9.5px] text-gray-500 dark:text-gray-400 leading-normal">
+                            *Rate: ₹{cartDeliveryDetails.delivery_charge_per_km}/km for the distance beyond the free limit ({cartDeliveryDetails.freeDeliveryKm} km).
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex justify-between items-center text-green-600 dark:text-emerald-400 font-bold border-t border-purple-200/40 dark:border-purple-800/40 pt-1.5 mt-0.5">
+                          <span>Delivery Status:</span>
+                          <span className="bg-green-100 dark:bg-emerald-950/50 px-2 py-0.5 rounded text-[10px]">FREE DELIVERY 🎉</span>
+                        </div>
+                      )}
+                    </div>
+                  )
                 )}
 
                 <div className="space-y-3 mb-4 text-sm">
@@ -226,7 +260,7 @@ const CartDrawer = () => {
 
                 <button
                   onClick={handleCheckout}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-purple-500/25"
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-purple-500/25 cursor-pointer border-none"
                 >
                   Proceed to Checkout
                   <ArrowRight className="w-4 h-4" />

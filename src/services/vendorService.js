@@ -64,6 +64,10 @@ export const vendorService = {
       throw error.response?.data || error
     }
   },
+  getVendorProduct: async (productId) => {
+    const response = await API.get(`/vendor/products/${productId}`)
+    return response.data
+  },
   addProduct: async (productData) => {
     const response = await API.post('/vendor/products', productData)
     return response.data
