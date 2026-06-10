@@ -18,8 +18,8 @@ const BottomNav = () => {
   const location = useLocation()
   const [showLoginModal, setShowLoginModal] = useState(false)
 
-  // Hide on vendor routes
-  if (location.pathname.startsWith('/vendor')) return null
+  // Hide on vendor, terms, and privacy routes
+  if (location.pathname.startsWith('/vendor') || location.pathname === '/terms' || location.pathname === '/privacy') return null
 
   const isLoggedIn = !!user && !!localStorage.getItem('token')
 

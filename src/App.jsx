@@ -9,6 +9,8 @@ import RegisterPage from './pages/Register/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPassword/ForgotPasswordPage'
 import VerifyOtpPage from './pages/VerifyOtp/VerifyOtpPage'
 import ResetPasswordPage from './pages/ResetPassword/ResetPasswordPage'
+import TermsPage from './pages/Terms/TermsPage'
+import PrivacyPage from './pages/Privacy/PrivacyPage'
 import BottomNav from './components/navbar/BottomNav'
 import VendorBottomNav from './components/navbar/VendorBottomNav'
 import CartPage from './pages/Cart/CartPage'
@@ -380,6 +382,22 @@ const App = () => {
                   <VendorMasterProducts />
                 </motion.div>
               </VendorProtectedRoute>
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                <TermsPage />
+              </motion.div>
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                <PrivacyPage />
+              </motion.div>
             }
           />
 

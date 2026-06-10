@@ -312,11 +312,21 @@ const RegisterPage = () => {
             />
             <label htmlFor="terms" className="text-xs text-gray-500 dark:text-gray-400 select-none">
               I agree to the{' '}
-              <a href="#" className="text-purple-600 dark:text-purple-400 hover:underline font-semibold">
-                Terms of Service
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-600 dark:text-purple-400 hover:underline font-semibold"
+              >
+                Terms & Conditions
               </a>{' '}
               and{' '}
-              <a href="#" className="text-purple-600 dark:text-purple-400 hover:underline font-semibold">
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-600 dark:text-purple-400 hover:underline font-semibold"
+              >
                 Privacy Policy
               </a>
             </label>
@@ -430,6 +440,7 @@ const RegisterPage = () => {
           </div>
         )}
       </AnimatePresence>
+
     </div>
   )
 }
