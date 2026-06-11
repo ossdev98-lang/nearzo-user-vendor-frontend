@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Settings, Bell, Menu, Store, User, MapPin, Compass, Save, TrendingUp, ShoppingBag, Package, LogOut, X, ChevronDown, Moon, Sun, Tag, Phone, Mail, Camera, Clock } from 'lucide-react'
+import { Settings, Bell, Menu, Store, User, MapPin, Compass, Save, TrendingUp, ShoppingBag, Package, LogOut, X, ChevronDown, Moon, Sun, Tag, Phone, Mail, Camera, Clock, ClipboardList } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useNavigate, Link } from 'react-router-dom'
 import logoImg from '../../assets/nearzo-logo.png'
@@ -32,6 +32,19 @@ const VendorSettings = () => {
   // Dynamic Shop Categories
   const [categories, setCategories] = useState([])
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false)
+  const [allProductCategories, setAllProductCategories] = useState([])
+  const [selectedProductCategoryIds, setSelectedProductCategoryIds] = useState([])
+  const [isProdCategoryDropdownOpen, setIsProdCategoryDropdownOpen] = useState(false)
+
+  const handleToggleProductCategory = (catId) => {
+    setSelectedProductCategoryIds(prev => {
+      if (prev.includes(catId)) {
+        return prev.filter(id => id !== catId)
+      } else {
+        return [...prev, catId]
+      }
+    })
+  }
 
   // Profile fields
   const [shopName, setShopName] = useState('')
@@ -80,6 +93,8 @@ const VendorSettings = () => {
         }
 
         const profileRes = await vendorService.getProfile()
+        console.log("DEBUG_PROFILE:", JSON.stringify(profileRes))
+        localStorage.setItem('last_profile_res', JSON.stringify(profileRes))
         if (profileRes) {
           const profile = profileRes.vendor || profileRes.profile || profileRes.data || profileRes
           setShopName(profile.shopName || '')
@@ -125,6 +140,52 @@ const VendorSettings = () => {
               setShopCategoryId(matched.id)
             }
           }
+
+          // 1. Fetch all product categories from API first
+          let allCats = []
+          try {
+            const prodCatRes = await categoryService.getProductCategories()
+            if (prodCatRes) {
+              allCats = prodCatRes.categories || prodCatRes.productCategories || prodCatRes.data || prodCatRes || []
+            }
+          } catch (prodErr) {
+            console.error('Failed to load product categories from API:', prodErr)
+          }
+
+          const parsedAll = Array.isArray(allCats) ? allCats : [allCats].filter(Boolean)
+          
+          const standardizedAll = parsedAll.map(c => {
+            if (typeof c === 'string') {
+              return { id: String(c), name: c }
+            }
+            const idVal = c.id !== undefined && c.id !== null ? c.id : (c._id !== undefined && c._id !== null ? c._id : '')
+            const name = c.name || c.categoryName || c.title || String(idVal) || '';
+            return { id: String(idVal), name }
+          }).filter(c => c.id !== '')
+
+          setAllProductCategories(standardizedAll)
+
+          // 2. Initialize selected product categories from profile response, using mapped IDs
+          const selectedCats = profile.productCategory || profile.productCategoryIds || profile.productCategories || []
+          const parsedSelected = Array.isArray(selectedCats) ? selectedCats : [selectedCats].filter(Boolean)
+          
+          const initialSelectedIds = parsedSelected.map(sel => {
+            const val = typeof sel === 'string' || typeof sel === 'number' ? String(sel) : String(sel.id || sel._id || sel.name || '')
+            if (!val) return ''
+            
+            // Try to find a category in standardizedAll where ID matches
+            const matchedById = standardizedAll.find(c => String(c.id) === val)
+            if (matchedById) return String(matchedById.id)
+            
+            // Try to find a category in standardizedAll where Name matches
+            const matchedByName = standardizedAll.find(c => c.name.toLowerCase() === val.toLowerCase())
+            if (matchedByName) return String(matchedByName.id)
+
+            // Otherwise, return it as is
+            return val
+          }).filter(Boolean)
+          
+          setSelectedProductCategoryIds(initialSelectedIds)
         }
       } catch (err) {
         toast.error('Failed to load settings')
@@ -183,6 +244,54 @@ const VendorSettings = () => {
     }
   }
 
+  const [updatingCoords, setUpdatingCoords] = useState(false)
+  const [confirmCoordsOpen, setConfirmCoordsOpen] = useState(false)
+
+  const handleUpdateCoordinates = () => {
+    setConfirmCoordsOpen(true)
+  }
+
+  const performUpdateCoordinates = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      return
+    }
+
+    setUpdatingCoords(true)
+    const toastId = toast.loading('Detecting current coordinates...')
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude: lat, longitude: lng } = position.coords
+          
+          setLatitude(lat.toString())
+          setLongitude(lng.toString())
+
+          localStorage.setItem('vendor_latitude', lat.toString())
+          localStorage.setItem('vendor_longitude', lng.toString())
+          localStorage.setItem('user_latitude', lat.toString())
+          localStorage.setItem('user_longitude', lng.toString())
+
+          await vendorService.updateLocationCoordinates(lat, lng)
+          
+          toast.success('Coordinates updated successfully!', { id: toastId })
+        } catch (err) {
+          console.error('Failed to update coordinates:', err)
+          toast.error(err.response?.data?.message || 'Failed to update coordinates on server.', { id: toastId })
+        } finally {
+          setUpdatingCoords(false)
+        }
+      },
+      (err) => {
+        console.error('Geolocation permission denied/failed:', err)
+        toast.error('Permission denied or failed to get location.', { id: toastId })
+        setUpdatingCoords(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
   const handleLogout = () => {
     vendorAuthService.logout()
     setUser(null)
@@ -224,6 +333,23 @@ const VendorSettings = () => {
         formDataToSend.append('banner', bannerFile)
       }
 
+      // Append selected product category IDs (using productCategory and productCategoryIds keys)
+      if (selectedProductCategoryIds && selectedProductCategoryIds.length > 0) {
+        selectedProductCategoryIds.forEach(id => {
+          formDataToSend.append('productCategory', id)
+          formDataToSend.append('productCategory[]', id)
+          formDataToSend.append('productCategoryIds', id)
+          formDataToSend.append('productCategoryIds[]', id)
+        })
+        formDataToSend.append('productCategoryJson', JSON.stringify(selectedProductCategoryIds))
+        formDataToSend.append('productCategoryIdsJson', JSON.stringify(selectedProductCategoryIds))
+      } else {
+        formDataToSend.append('productCategory', '')
+        formDataToSend.append('productCategoryIds', '')
+        formDataToSend.append('productCategoryJson', '[]')
+        formDataToSend.append('productCategoryIdsJson', '[]')
+      }
+
       const res = await vendorService.updateSettings(formDataToSend)
       const updatedUser = res.vendor || res.profile || res.data || {
         ...user,
@@ -238,7 +364,9 @@ const VendorSettings = () => {
         city,
         state,
         pincode,
-        address
+        address,
+        productCategory: selectedProductCategoryIds,
+        productCategoryIds: selectedProductCategoryIds
       }
       setUser(updatedUser)
       localStorage.setItem('user', JSON.stringify(updatedUser))
@@ -380,9 +508,9 @@ const VendorSettings = () => {
 
             {/* Left Sidebar Tabs */}
             <div className="lg:col-span-3">
-              <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-3 shadow-sm">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-2 lg:p-3 shadow-sm grid grid-cols-3 lg:flex lg:flex-col gap-1.5 lg:gap-1.5 sticky top-16 lg:top-8 z-20">
                 {/* Avatar */}
-                <div className="p-4 text-center border-b border-gray-100 dark:border-gray-800 mb-3">
+                <div className="hidden lg:block p-4 text-center border-b border-gray-100 dark:border-gray-800 mb-3">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center mx-auto mb-3 overflow-hidden shadow-md">
                     {logoPreview ? (
                       <img src={logoPreview} alt="Shop Logo" className="w-full h-full object-cover" />
@@ -397,9 +525,17 @@ const VendorSettings = () => {
                 {tabs.map(tab => {
                   const isActive = activeTab === tab.id
                   return (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl mb-1 transition-all text-sm font-bold cursor-pointer border-none ${isActive ? 'bg-[#6C4CF1] text-white shadow-md shadow-purple-600/25' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-                      <tab.icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                      {tab.label}
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center justify-center lg:justify-start gap-1 lg:gap-2 px-1 py-2.5 lg:px-4 lg:py-3 rounded-2xl transition-all text-[10px] sm:text-xs lg:text-sm font-bold cursor-pointer border-none whitespace-nowrap shrink-0
+                        ${isActive
+                          ? 'bg-[#6C4CF1] text-white shadow-md shadow-purple-600/25'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                    >
+                      <tab.icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                      <span>{tab.label}</span>
                     </button>
                   )
                 })}
@@ -425,7 +561,7 @@ const VendorSettings = () => {
                             <h2 className="font-black text-lg text-gray-900 dark:text-white">Shop Profile</h2>
                             <p className="text-xs text-gray-400 mt-0.5">Update your shop details, photos and preferences</p>
                           </div>
-                          <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-[#6C4CF1] hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-60 cursor-pointer border-none shadow-md shadow-purple-600/20">
+                          <button type="submit" disabled={saving} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-[#6C4CF1] hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-60 cursor-pointer border-none shadow-md shadow-purple-600/20">
                             <Save className="w-3.5 h-3.5" /> {saving ? 'Saving...' : 'Save Changes'}
                           </button>
                         </div>
@@ -552,27 +688,132 @@ const VendorSettings = () => {
                             </div>
                           )}
 
-                          {/* Address Info */}
+                          {/* Product Categories (Multi-select) */}
                           <div>
-                            <p className="text-[10px] font-black text-[#6C4CF1] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-50 dark:border-gray-800 pb-2"><MapPin className="w-3.5 h-3.5" /> Shop Address & Location</p>
-                            <div className="grid grid-cols-1 gap-4 mb-4">
-                              <div>
-                                <label className={labelCls}>Full Address</label>
-                                <textarea
-                                  value={address}
-                                  onChange={e => setAddress(e.target.value)}
-                                  className={inputCls + " resize-none h-20"}
-                                  placeholder="e.g. Shop No. 12, Ground Floor, Near Main Market"
-                                />
+                            <p className="text-[10px] font-black text-[#6C4CF1] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-50 dark:border-gray-800 pb-2">
+                              <ClipboardList className="w-3.5 h-3.5" /> Product Categories (Select Multiple)
+                            </p>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setIsProdCategoryDropdownOpen(!isProdCategoryDropdownOpen)}
+                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl text-sm font-semibold flex items-center justify-between text-gray-800 dark:text-white"
+                              >
+                                <div className="flex flex-wrap gap-1.5 max-w-[90%] text-left">
+                                  {selectedProductCategoryIds.length > 0 ? (
+                                    selectedProductCategoryIds.map(id => {
+                                      const cat = allProductCategories.find(c => String(c.id) === String(id))
+                                      const displayName = cat ? cat.name : id
+                                      return (
+                                        <span
+                                          key={id}
+                                          className="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-[#6C4CF1] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wide flex items-center gap-1"
+                                        >
+                                          {displayName}
+                                          <span 
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleToggleProductCategory(id)
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 cursor-pointer ml-1 text-xs"
+                                          >
+                                            ×
+                                          </span>
+                                        </span>
+                                      )
+                                    })
+                                  ) : (
+                                    <span className="text-gray-400 text-xs font-semibold">Select Product Categories</span>
+                                  )}
+                                </div>
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isProdCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              <AnimatePresence>
+                                {isProdCategoryDropdownOpen && (
+                                  <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setIsProdCategoryDropdownOpen(false)} />
+                                    <motion.ul
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: -10 }}
+                                      className="absolute left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl z-20 max-h-60 overflow-y-auto no-scrollbar list-none p-2 space-y-1"
+                                    >
+                                      {allProductCategories.map(cat => {
+                                        const isSelected = selectedProductCategoryIds.includes(cat.id)
+                                        return (
+                                          <li key={cat.id}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleToggleProductCategory(cat.id)}
+                                              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center justify-between border-none bg-transparent cursor-pointer ${isSelected
+                                                ? 'bg-purple-50 dark:bg-purple-950/20 text-[#6C4CF1]'
+                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                                }`}
+                                            >
+                                              <span>{cat.name}</span>
+                                              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />}
+                                            </button>
+                                          </li>
+                                        )
+                                      })}
+                                    </motion.ul>
+                                  </>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                          {/* Address Info */}
+                          <div className="space-y-4">
+                            <p className="text-[10px] font-black text-[#6C4CF1] uppercase tracking-wider mb-2 flex items-center gap-2 border-b border-gray-50 dark:border-gray-800 pb-2"><MapPin className="w-3.5 h-3.5" /> Shop Address & Location</p>
+                            
+                            <div>
+                              <label className={labelCls}>Full Address</label>
+                              <textarea
+                                value={address}
+                                onChange={(e) => setAddress(e.target.value)}
+                                className={`${inputCls} h-24 resize-none`}
+                                placeholder="Enter your full shop address..."
+                              />
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 bg-purple-50/10 dark:bg-purple-950/5 border border-purple-100/10 p-4 rounded-2xl font-semibold text-xs text-gray-700 dark:text-gray-300">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-400 uppercase text-[10px] font-bold">Latitude:</span>
+                                <span className="font-mono text-purple-600 dark:text-purple-400 font-extrabold">{latitude || 'Not set'}</span>
+                              </div>
+                              <div className="w-px h-4 bg-gray-200 dark:bg-gray-800 hidden sm:block" />
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-400 uppercase text-[10px] font-bold">Longitude:</span>
+                                <span className="font-mono text-purple-600 dark:text-purple-400 font-extrabold">{longitude || 'Not set'}</span>
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                              <div><label className={labelCls}>City</label><input value={city} onChange={e => setCity(e.target.value)} className={inputCls} placeholder="City name" /></div>
-                              <div><label className={labelCls}>State</label><input value={state} onChange={e => setState(e.target.value)} className={inputCls} placeholder="State name" /></div>
-                              <div><label className={labelCls}>Pincode</label><input value={pincode} onChange={e => setPincode(e.target.value)} className={inputCls} placeholder="6-digit PIN" /></div>
+
+                            <div>
+                              <button
+                                type="button"
+                                onClick={handleUpdateCoordinates}
+                                disabled={updatingCoords}
+                                className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-[#6C4CF1] hover:bg-purple-700 disabled:opacity-60 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-md shadow-purple-600/10"
+                              >
+                                <Compass className={`w-4 h-4 ${updatingCoords ? 'animate-spin' : ''}`} />
+                                {updatingCoords ? 'Updating Coordinates...' : 'Update Coordinates'}
+                              </button>
                             </div>
                           </div>
 
+                          {/* Save Changes button on mobile */}
+                          <div className="flex justify-end sm:hidden pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <button
+                              type="submit"
+                              disabled={saving}
+                              className="flex items-center gap-2 px-6 py-3 bg-[#6C4CF1] hover:bg-purple-700 disabled:opacity-60 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-md shadow-purple-600/20"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                              {saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                          </div>
+ 
                         </div>
                       </form>
                     )}
@@ -613,7 +854,7 @@ const VendorSettings = () => {
                           <h2 className="font-black text-lg text-gray-900 dark:text-white">Order Settings</h2>
                           <p className="text-xs text-gray-400 mt-0.5">Configure acceptance range and delivery fees</p>
                         </div>
-                        <button type="submit" disabled={savingOrderSettings} className="flex items-center gap-2 px-5 py-2.5 bg-[#6C4CF1] hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-60 cursor-pointer border-none shadow-md shadow-purple-600/20">
+                        <button type="submit" disabled={savingOrderSettings} className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-[#6C4CF1] hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-60 cursor-pointer border-none shadow-md shadow-purple-600/20">
                           <Save className="w-3.5 h-3.5" /> {savingOrderSettings ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
@@ -665,6 +906,18 @@ const VendorSettings = () => {
                             />
                           </div>
                         </div>
+
+                        {/* Save Changes button on mobile */}
+                        <div className="flex justify-end sm:hidden pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <button
+                            type="submit"
+                            disabled={savingOrderSettings}
+                            className="flex items-center gap-2 px-6 py-3 bg-[#6C4CF1] hover:bg-purple-700 disabled:opacity-60 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-md shadow-purple-600/20"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            {savingOrderSettings ? 'Saving...' : 'Save Changes'}
+                          </button>
+                        </div>
                       </div>
                     </form>
                   </motion.div>
@@ -698,15 +951,80 @@ const VendorSettings = () => {
                     </div>
                   </motion.div>
                 )}
-
               </AnimatePresence>
             </div>
           </div>
         </div>
       </main>
 
+      {/* Geolocation Update Confirmation Modal */}
+      <AnimatePresence>
+        {confirmCoordsOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmCoordsOpen(false)}
+              className="absolute inset-0"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative bg-white dark:bg-gray-900 rounded-[32px] border border-gray-105 dark:border-gray-800 p-8 shadow-2xl w-full max-w-md text-left z-10 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-purple-600 animate-pulse" />
+                  Update Coordinates?
+                </h3>
+                <button
+                  onClick={() => setConfirmCoordsOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4.5 h-4.5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-normal font-semibold">
+                  Are you sure you want to update your shop's coordinates to your current physical location?
+                </p>
+
+                <div className="text-[11px] text-amber-600 dark:text-amber-400 font-extrabold leading-relaxed bg-amber-500/10 p-4 rounded-2xl border border-amber-500/10">
+                  ⚠️ Note: Please click update coordinates only when you are physically at your shop location to ensure the coordinates are correct. (कृपया कोऑर्डिनेट्स वहीं जाकर अपडेट करें जहां की लोकेशन डालनी है, जैसे आपकी दुकान पर।)
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmCoordsOpen(false)}
+                    className="flex-1 px-5 py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer bg-transparent"
+                  >
+                    Go Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmCoordsOpen(false)
+                      performUpdateCoordinates()
+                    }}
+                    className="flex-1 px-5 py-3 bg-[#6C4CF1] hover:bg-purple-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-md shadow-purple-600/10"
+                  >
+                    Confirm Update
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+ 
     </div>
   )
 }
-
+ 
 export default VendorSettings

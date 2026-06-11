@@ -252,7 +252,7 @@ const VendorDashboard = () => {
 
             const priceNum = Number(String(o.price || o.totalAmount || o.total || 0).replace(/[^0-9.]/g, '')) || 0
             computedTotalSales += priceNum
-            
+
             const isToday = o.createdAt ? new Date(o.createdAt).toDateString() === new Date().toDateString() : true
             if (isToday && isCompleted) {
               computedTodaySales += priceNum
@@ -407,17 +407,25 @@ const VendorDashboard = () => {
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Here is what's happening with your store today.</span>
 
-              {/* Store Status Toggle */}
-              <button
-                onClick={toggleStoreStatus}
-                className="flex items-center gap-2 focus:outline-none group px-3.5 py-1.5 bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 rounded-full shadow-sm hover:shadow-md transition-all cursor-pointer"
-              >
-                <span className={`w-2.5 h-2.5 rounded-full ${isStoreOpen ? 'bg-[#00B074] shadow-[0_0_8px_#00B074]' : 'bg-red-500 shadow-[0_0_8px_#EF4444]'} animate-pulse`} />
-                <span className="text-xs font-black text-gray-500 group-hover:text-gray-700 transition-colors">
-                  Store is <span className={isStoreOpen ? 'text-[#00B074]' : 'text-red-500'}>{isStoreOpen ? 'Open' : 'Closed'}</span>
+              {/* Store Status Switch Toggle */}
+              <div className="flex items-center gap-3 bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 px-4 py-2 rounded-2xl shadow-sm">
+                <span className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Store Status: <span className={isStoreOpen ? 'text-[#00B074]' : 'text-red-500'}>{isStoreOpen ? 'Open' : 'Closed'}</span>
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-650 transition-colors" />
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleStoreStatus}
+                  className={`w-11 h-6 rounded-full p-0.5 transition-colors focus:outline-none relative flex items-center cursor-pointer border-none ${isStoreOpen ? 'bg-[#00B074]' : 'bg-gray-300 dark:bg-gray-700'
+                    }`}
+                >
+                  <motion.div
+                    layout
+                    className="w-5 h-5 bg-white rounded-full shadow-md"
+                    animate={{ x: isStoreOpen ? 20 : 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 

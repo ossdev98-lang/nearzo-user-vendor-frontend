@@ -22,12 +22,17 @@ const BottomNav = () => {
   if (location.pathname.startsWith('/vendor') || location.pathname === '/terms' || location.pathname === '/privacy') return null
 
   const isLoggedIn = !!user && !!localStorage.getItem('token')
+  const isVendor = localStorage.getItem('role') === 'vendor' || user?.role === 'vendor'
 
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },
     { label: 'Search', icon: Search, path: '#search' },
     { label: 'Cart', icon: ShoppingCart, path: '/cart', badge: cartCount },
-    { label: 'Profile', icon: User, path: isLoggedIn ? '/profile' : '#' }
+    { 
+      label: isVendor ? 'Dashboard' : 'Profile', 
+      icon: isVendor ? Store : User, 
+      path: isLoggedIn ? (isVendor ? '/vendor/dashboard' : '/profile') : '#' 
+    }
   ]
 
   return (
@@ -73,11 +78,11 @@ const BottomNav = () => {
                 }}
               >
                 <div className="relative">
-                  {item.label === 'Profile' && user ? (
+                  {(item.label === 'Profile' || item.label === 'Dashboard') && user ? (
                     <div className="w-6 h-6 rounded-full overflow-hidden border border-gray-200 dark:border-white/10">
                       <img 
-                        src={getAvatarUrl(user.avatar)} 
-                        alt={user.name} 
+                        src={getAvatarUrl(user.avatar || user.logo)} 
+                        alt={user.shopName || user.name} 
                         crossOrigin="anonymous"
                         className="w-full h-full object-cover"
                         onError={(e) => { e.target.src = dummyUserImage }}

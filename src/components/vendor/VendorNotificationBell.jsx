@@ -124,7 +124,7 @@ const VendorNotificationBell = () => {
           <>
             {/* Backdrop for closing */}
             <div
-              className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity"
+              className="fixed inset-0 z-[140] bg-black/20 backdrop-blur-[2px] transition-opacity"
               onClick={() => setShowNotifications(false)}
             />
 
@@ -133,7 +133,7 @@ const VendorNotificationBell = () => {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="hidden md:block absolute right-0 mt-2 w-96 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-purple-100/15 dark:border-gray-800/80 rounded-3xl shadow-2xl z-50 overflow-hidden"
+              className="hidden md:block absolute right-0 mt-2 w-96 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-purple-100/15 dark:border-gray-800/80 rounded-3xl shadow-2xl z-[150] overflow-hidden"
               style={{ right: '0px' }}
             >
               <div className="p-4 border-b border-purple-100/10 dark:border-gray-800/50 flex items-center justify-between">
@@ -197,7 +197,7 @@ const VendorNotificationBell = () => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[32px] border-t border-purple-100/15 dark:border-gray-800 z-50 overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+              className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[32px] border-t border-purple-100/15 dark:border-gray-800 z-[150] overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
             >
               <div className="w-12 h-1.5 bg-gray-205 dark:bg-white/10 rounded-full mx-auto my-3 shrink-0" />
 

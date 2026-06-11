@@ -57,6 +57,12 @@ const VendorOrders = () => {
   const [playingAudioId, setPlayingAudioId] = useState(null)
   const [currentAudio, setCurrentAudio] = useState(null)
 
+  // Cancel order modal states
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancelTargetOrderId, setCancelTargetOrderId] = useState(null)
+  const [cancelTargetStatus, setCancelTargetStatus] = useState(null)
+  const [cancelReasonInput, setCancelReasonInput] = useState('')
+
   useEffect(() => {
     return () => {
       if (currentAudio) {
@@ -64,6 +70,14 @@ const VendorOrders = () => {
       }
     }
   }, [currentAudio])
+
+  useEffect(() => {
+    if (!selectedOrder && currentAudio) {
+      currentAudio.pause()
+      setPlayingAudioId(null)
+      setCurrentAudio(null)
+    }
+  }, [selectedOrder, currentAudio])
 
   const handleToggleVoicePlayback = (orderId, voiceInstruction) => {
     if (!voiceInstruction) return
@@ -198,6 +212,7 @@ const VendorOrders = () => {
           voiceInstruction: o.audioNote || o.voiceInstruction || '',
           paymentMethod: (o.paymentMethod || o.payment_method || 'N/A').toUpperCase(),
           paymentStatus: o.paymentStatus || o.payment_status || 'pending',
+          cancelReason: o.cancelReason || '',
           city: o.city || '',
           state: o.state || '',
           address: o.address || '',
@@ -226,12 +241,12 @@ const VendorOrders = () => {
     navigate('/vendor/login')
   }
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
+  const handleUpdateStatus = async (orderId, newStatus, cancelReason = null) => {
     setUpdatingId(orderId)
     try {
-      await vendorService.updateOrderStatus(orderId, newStatus)
+      await vendorService.updateOrderStatus(orderId, newStatus, cancelReason)
       toast.success(`Order status updated to ${newStatus}`)
-
+ 
       // Update local state immediately
       let mappedType = 'new'
       if (newStatus === 'confirmed') {
@@ -240,14 +255,15 @@ const VendorOrders = () => {
         mappedType = 'processing'
       } else if (newStatus === 'delivered' || newStatus === 'completed') {
         mappedType = 'completed'
-      } else if (newStatus === 'cancelled') {
+      } else if (newStatus === 'cancelled' || newStatus === 'Rejected') {
         mappedType = 'cancelled'
       }
-
+ 
       setOrders(prev => prev.map(o => o.rawId === orderId || o.id === orderId ? {
         ...o,
         status: newStatus,
-        type: mappedType
+        type: mappedType,
+        cancelReason: cancelReason || o.cancelReason
       } : o))
     } catch (err) {
       toast.error('Failed to update status')
@@ -260,8 +276,8 @@ const VendorOrders = () => {
     const status = String(currentStatus).toLowerCase()
     if (status === 'pending') {
       return [
-        { label: 'Accept', value: 'Accepted' },
-        { label: 'Reject', value: 'Rejected' }
+        { label: 'Accept', value: 'confirmed' },
+        { label: 'Reject', value: 'cancelled' }
       ]
     }
     if (status === 'confirmed') {
@@ -538,7 +554,7 @@ const VendorOrders = () => {
                                 : order.type === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
                                   : order.type === 'new' ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
                                     : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}>
-                            {order.status}
+                            {order.status === 'cancelled' ? 'Rejected' : order.status}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
@@ -557,7 +573,17 @@ const VendorOrders = () => {
                                 <button
                                   key={transition.value}
                                   disabled={updatingId === order.rawId || updatingId === order.id}
-                                  onClick={() => handleUpdateStatus(order.rawId || order.id, transition.value)}
+                                  onClick={() => {
+                                    const val = transition.value;
+                                    if (val === 'cancelled' || val === 'Rejected') {
+                                      setCancelTargetOrderId(order.rawId || order.id)
+                                      setCancelTargetStatus(val)
+                                      setCancelReasonInput('')
+                                      setCancelModalOpen(true)
+                                    } else {
+                                      handleUpdateStatus(order.rawId || order.id, val)
+                                    }
+                                  }}
                                   className="px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase border border-gray-200 dark:border-gray-700 text-[#6C4CF1] bg-white hover:bg-purple-50 dark:bg-gray-900 dark:hover:bg-purple-950/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                 >
                                   {transition.label}
@@ -609,7 +635,7 @@ const VendorOrders = () => {
                                     ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
                                     : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}
                           >
-                            {order.status}
+                            {order.status === 'cancelled' ? 'Rejected' : order.status}
                           </span>
                         </div>
                       </div>
@@ -647,17 +673,34 @@ const VendorOrders = () => {
                       )}
 
                       <div className="border-t border-gray-100/50 dark:border-gray-800 pt-3 flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Customer: <strong className="text-gray-700 dark:text-gray-300">{order.customer}</strong></span>
-                        <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase font-black">Cust: <strong className="text-gray-700 dark:text-gray-300 font-extrabold">{order.customer}</strong></span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-[#6C4CF1] hover:border-[#6C4CF1] bg-white dark:bg-gray-900 transition-all cursor-pointer shadow-sm"
+                            title="View Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                           {getAvailableTransitions(order.status).length === 0 ? (
-                            <span className="text-[9px] font-bold text-gray-400">No Action</span>
+                            <span className="text-[9px] font-bold text-gray-400">Done</span>
                           ) : (
                             getAvailableTransitions(order.status).map((transition) => (
                               <button
                                 key={transition.value}
                                 disabled={updatingId === order.rawId || updatingId === order.id}
-                                onClick={() => handleUpdateStatus(order.rawId || order.id, transition.value)}
-                                className="px-2 py-0.5 rounded-md text-[8px] font-extrabold uppercase border border-gray-150 dark:border-gray-700 text-[#6C4CF1] bg-white dark:bg-gray-900 hover:bg-purple-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => {
+                                  const val = transition.value;
+                                  if (val === 'cancelled' || val === 'Rejected') {
+                                    setCancelTargetOrderId(order.rawId || order.id)
+                                    setCancelTargetStatus(val)
+                                    setCancelReasonInput('')
+                                    setCancelModalOpen(true)
+                                  } else {
+                                    handleUpdateStatus(order.rawId || order.id, val)
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-md text-[8px] font-extrabold uppercase border border-gray-150 dark:border-gray-700 text-[#6C4CF1] bg-white dark:bg-gray-900 hover:bg-purple-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                               >
                                 {transition.label}
                               </button>
@@ -704,7 +747,7 @@ const VendorOrders = () => {
                           : selectedOrder.type === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
                             : selectedOrder.type === 'new' ? 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'
                               : 'bg-red-50 text-red-600 dark:bg-red-950/20'}`}>
-                      {selectedOrder.status}
+                      {selectedOrder.status === 'cancelled' ? 'Rejected' : selectedOrder.status}
                     </span>
                   </div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
@@ -732,7 +775,15 @@ const VendorOrders = () => {
                             key={transition.value}
                             disabled={updatingId === selectedOrder.rawId}
                             onClick={() => {
-                              handleUpdateStatus(selectedOrder.rawId || selectedOrder.id, transition.value);
+                              const tValue = transition.value;
+                              if (tValue === 'cancelled' || tValue === 'Rejected') {
+                                setCancelTargetOrderId(selectedOrder.rawId || selectedOrder.id)
+                                setCancelTargetStatus(tValue)
+                                setCancelReasonInput('')
+                                setCancelModalOpen(true)
+                              } else {
+                                handleUpdateStatus(selectedOrder.rawId || selectedOrder.id, tValue);
+                              }
                               setSelectedOrder(null);
                             }}
                             className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 shadow-sm border-none ${btnColorClass}`}
@@ -743,9 +794,11 @@ const VendorOrders = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="px-2.5 py-1 bg-gray-50/50 dark:bg-gray-950 rounded-xl text-[10px] font-extrabold uppercase tracking-wide text-gray-400">
-                      Order Completed
-                    </div>
+                    selectedOrder.status !== 'cancelled' && (
+                      <div className="px-2.5 py-1 bg-gray-50/50 dark:bg-gray-950 rounded-xl text-[10px] font-extrabold uppercase tracking-wide text-gray-400">
+                        Order Completed
+                      </div>
+                    )
                   )}
                   <button onClick={() => setSelectedOrder(null)} className="p-2 rounded-xl hover:bg-gray-105 dark:hover:bg-gray-800 transition-colors cursor-pointer border-none bg-transparent">
                     <X className="w-5 h-5 text-gray-500" />
@@ -760,7 +813,7 @@ const VendorOrders = () => {
                   <div className="space-y-3 text-left">
                     <div className="flex items-center gap-2 px-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
-                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-450 dark:text-gray-500">Customer & Delivery</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-455 dark:text-gray-500">Customer & Delivery</span>
                     </div>
 
                     <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-105 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
@@ -822,10 +875,6 @@ const VendorOrders = () => {
                             ${selectedOrder.paymentMethod === 'COD' ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-950/20' : 'bg-green-50 text-green-600 dark:bg-green-950/20'}`}>
                             {selectedOrder.paymentMethod}
                           </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-500 font-bold">Status:</span>
-                          <span className="font-extrabold capitalize text-gray-700 dark:text-gray-300">{selectedOrder.paymentStatus}</span>
                         </div>
                       </div>
                     </div>
@@ -932,9 +981,81 @@ const VendorOrders = () => {
           </motion.div>
         )}
       </AnimatePresence>
+ 
+      {/* Cancellation/Rejection Reason Modal */}
+      <AnimatePresence>
+        {cancelModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCancelModalOpen(false)}
+              className="absolute inset-0"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative bg-white dark:bg-gray-900 rounded-[32px] border border-gray-100 dark:border-gray-800 p-8 shadow-2xl w-full max-w-md text-left z-10 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  Reason for Cancellation
+                </h3>
+                <button
+                  onClick={() => setCancelModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4.5 h-4.5 text-gray-400" />
+                </button>
+              </div>
 
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400 font-bold leading-normal">
+                  Please provide a reason for cancelling this order. This reason will be shared with the customer.
+                </p>
+
+                <textarea
+                  value={cancelReasonInput}
+                  onChange={(e) => setCancelReasonInput(e.target.value)}
+                  className="w-full h-28 px-4 py-3 bg-gray-50 dark:bg-gray-950 border border-gray-105 dark:border-gray-800 focus:border-red-400 dark:focus:border-red-400 focus:ring-1 focus:ring-red-400 rounded-2xl text-xs font-semibold text-gray-700 dark:text-gray-200 outline-none resize-none transition-all placeholder:text-gray-400"
+                  placeholder="e.g. Out of stock, Store closed, Delivery partner unavailable, etc."
+                />
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCancelModalOpen(false)}
+                    className="flex-1 px-5 py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer bg-transparent"
+                  >
+                    Go Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!cancelReasonInput.trim()}
+                    onClick={async () => {
+                      if (!cancelReasonInput.trim()) return
+                      const reason = cancelReasonInput.trim()
+                      setCancelModalOpen(false)
+                      await handleUpdateStatus(cancelTargetOrderId, cancelTargetStatus, reason)
+                    }}
+                    className="flex-1 px-5 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-md shadow-red-600/10"
+                  >
+                    Confirm Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+ 
     </div>
   )
 }
-
+ 
 export default VendorOrders

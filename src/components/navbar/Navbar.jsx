@@ -43,11 +43,12 @@ const Navbar = () => {
   const [applying, setApplying] = useState(false)
   const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation } = useApp()
   const navigate = useNavigate()
+  const isVendor = localStorage.getItem('role') === 'vendor' || user?.role === 'vendor'
 
   const [suggestions, setSuggestions] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  
+
   const [showNotifications, setShowNotifications] = useState(false)
   const [notificationsList, setNotificationsList] = useState([])
 
@@ -60,7 +61,7 @@ const Navbar = () => {
     try {
       const response = await API.get('/user/notifications')
       const data = response.data
-      
+
       let rawList = []
       if (Array.isArray(data)) {
         rawList = data
@@ -97,7 +98,7 @@ const Navbar = () => {
         time: formatTimeAgo(item.createdAt || item.time || item.date),
         unread: item.unread !== undefined ? item.unread : (item.read !== undefined ? !item.read : (item.isRead !== undefined ? !item.isRead : true))
       }))
-      
+
       setNotificationsList(mapped)
     } catch (error) {
       console.error('Failed to fetch user notifications:', error)
@@ -177,6 +178,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     authService.logout()
+    localStorage.removeItem('role')
     setUser(null)
     setLoginDropdownOpen(false)
     navigate('/')
@@ -190,12 +192,39 @@ const Navbar = () => {
           try {
             const { latitude, longitude } = position.coords
             updateCoordinates(latitude, longitude)
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-            const data = await res.json()
-            if (data && data.address) {
-              const primary = data.address.suburb || data.address.neighbourhood || data.address.residential || data.address.town || data.address.city || 'Location Found'
-              updateLocation(primary, data.display_name || 'Details not available')
+            const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+            
+            let data = null
+            try {
+              const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`)
+              data = await res.json()
+            } catch (err) {
+              console.warn("Google Maps geocode API fetch error, falling back to OSM Nominatim:", err)
+            }
+
+            if (data && data.status === "OK" && data.results && data.results.length > 0) {
+              const result = data.results[0]
+              const display_name = result.formatted_address
+              let primary = 'Location Found'
+              const subLocality = result.address_components.find(c => c.types.includes('sublocality') || c.types.includes('sublocality_level_1'))
+              const neighborhood = result.address_components.find(c => c.types.includes('neighborhood'))
+              const locality = result.address_components.find(c => c.types.includes('locality'))
+              primary = (subLocality || neighborhood || locality)?.long_name || 'Location Found'
+              
+              updateLocation(primary, display_name || 'Details not available')
               setLocationModalOpen(false)
+            } else {
+              // Fallback to OSM Nominatim
+              console.log("Falling back to OpenStreetMap Nominatim for reverse geocoding...")
+              const osmRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
+              const osmData = await osmRes.json()
+              if (osmData && osmData.display_name) {
+                const display_name = osmData.display_name
+                const addr = osmData.address || {}
+                const primary = addr.suburb || addr.neighbourhood || addr.city_district || addr.city || addr.town || 'Location Found'
+                updateLocation(primary, display_name)
+                setLocationModalOpen(false)
+              }
             }
           } catch (error) {
             console.error('Error fetching location details:', error)
@@ -226,21 +255,49 @@ const Navbar = () => {
       setApplying(true)
       try {
         const query = encodeURIComponent(manualLocation.trim())
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
-        const data = await res.json()
+        const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+        
+        let data = null
+        try {
+          const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}`)
+          data = await res.json()
+        } catch (err) {
+          console.warn("Google Maps geocode API fetch error, falling back to OSM Nominatim:", err)
+        }
 
-        if (data && data.length > 0) {
-          const { lat, lon, display_name, name } = data[0]
-          updateCoordinates(parseFloat(lat), parseFloat(lon))
+        if (data && data.status === "OK" && data.results && data.results.length > 0) {
+          const result = data.results[0]
+          const { lat, lng } = result.geometry.location
+          updateCoordinates(lat, lng)
 
+          const display_name = result.formatted_address
           const parts = display_name.split(', ')
-          const primary = name || parts[0]
+          const primary = parts[0]
           const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
           updateLocation(primary, secondary)
           setLocationModalOpen(false)
           setManualLocation('')
         } else {
-          alert('Location not found. Please try another city or area.')
+          // Fallback to OSM Nominatim
+          console.log("Falling back to OpenStreetMap Nominatim for address geocoding...")
+          const osmRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`)
+          const osmData = await osmRes.json()
+          if (osmData && osmData.length > 0) {
+            const result = osmData[0]
+            const lat = parseFloat(result.lat)
+            const lng = parseFloat(result.lon)
+            updateCoordinates(lat, lng)
+
+            const display_name = result.display_name
+            const parts = display_name.split(', ')
+            const primary = parts[0]
+            const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
+            updateLocation(primary, secondary)
+            setLocationModalOpen(false)
+            setManualLocation('')
+          } else {
+            alert('Location not found. Please try another city or area.')
+          }
         }
       } catch (error) {
         console.error('Error finding manual location:', error)
@@ -581,11 +638,10 @@ const Navbar = () => {
                               <div
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif.id)}
-                                className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${
-                                  notif.unread
+                                className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${notif.unread
                                     ? 'bg-purple-50/50 dark:bg-purple-500/5 hover:bg-purple-50 dark:hover:bg-purple-500/10'
                                     : 'hover:bg-gray-50 dark:hover:bg-white/5'
-                                }`}
+                                  }`}
                               >
                                 <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
                                   {notif.type === 'order' ? <Package className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
@@ -647,11 +703,10 @@ const Navbar = () => {
                               <div
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif.id)}
-                                className={`p-4 rounded-2xl transition-all flex gap-3 text-left ${
-                                  notif.unread
+                                className={`p-4 rounded-2xl transition-all flex gap-3 text-left ${notif.unread
                                     ? 'bg-purple-50/50 dark:bg-purple-500/5'
                                     : 'bg-gray-50/30 dark:bg-white/5'
-                                }`}
+                                  }`}
                               >
                                 <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
                                   {notif.type === 'order' ? <Package className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
@@ -724,14 +779,14 @@ const Navbar = () => {
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-200 dark:border-white/10">
                         <img
                           src={getAvatarUrl(user.avatar)}
-                          alt={user.name}
+                          alt={isVendor ? (user.shopName || user.name) : user.name}
                           crossOrigin="anonymous"
                           className="w-full h-full object-cover"
                           onError={(e) => { e.target.src = dummyUserImage }}
                         />
                       </div>
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[100px]">
-                        {user.name}
+                        {isVendor ? (user.shopName || user.name) : user.name}
                       </span>
                       <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-300 ${loginDropdownOpen ? 'rotate-180' : ''}`} />
                     </motion.button>
@@ -751,23 +806,44 @@ const Navbar = () => {
                             className="absolute top-full right-0 mt-3 w-56 bg-white dark:bg-gray-900 rounded-2xl p-2 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
                           >
                             <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
-                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{isVendor ? (user.shopName || user.name) : user.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{user.email || user.phone}</p>
                             </div>
-                            <button
-                              onClick={() => { setLoginDropdownOpen(false); navigate('/profile') }}
-                              className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                            >
-                              <User className="w-4 h-4 text-gray-500" />
-                              My Profile
-                            </button>
-                            <button
-                              onClick={() => { setLoginDropdownOpen(false); navigate('/settings') }}
-                              className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
-                            >
-                              <Settings className="w-4 h-4 text-gray-500" />
-                              Settings
-                            </button>
+                            {isVendor ? (
+                              <>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/dashboard') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <Store className="w-4 h-4 text-gray-500" />
+                                  Vendor Dashboard
+                                </button>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/vendor/settings') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <Settings className="w-4 h-4 text-gray-500" />
+                                  Vendor Settings
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <User className="w-4 h-4 text-gray-500" />
+                                  My Profile
+                                </button>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/settings') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <Settings className="w-4 h-4 text-gray-500" />
+                                  Settings
+                                </button>
+                              </>
+                            )}
                             <button
                               onClick={handleLogout}
                               className="w-full mt-1 text-left px-4 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-sm font-medium text-red-600 dark:text-red-400 transition-colors flex items-center gap-2"
@@ -1039,8 +1115,8 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <div className="text-center text-gray-500">
-                    <p className="font-medium text-lg text-gray-800 dark:text-gray-200 mb-2">Welcome, {user.name}!</p>
-                    <p className="text-sm">Manage your profile from the bottom navigation.</p>
+                    <p className="font-medium text-lg text-gray-800 dark:text-gray-200 mb-2">Welcome, {isVendor ? (user.shopName || user.name) : user.name}!</p>
+                    <p className="text-sm">Manage your {isVendor ? 'store' : 'profile'} from the bottom navigation.</p>
                   </div>
                 )}
               </div>

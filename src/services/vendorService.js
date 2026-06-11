@@ -42,16 +42,28 @@ export const vendorService = {
       throw error.response?.data || error
     }
   },
-  updateOrderStatus: async (orderId, status) => {
+  updateOrderStatus: async (orderId, status, cancelReason = null) => {
     try {
-      const response = await API.patch(`/vendor/orders/${orderId}/status`, { status })
+      const payload = { status }
+      if (cancelReason) {
+        payload.cancelReason = cancelReason
+      }
+      const response = await API.patch(`/vendor/orders/${orderId}/status`, payload)
       return response.data
     } catch (err) {
       try {
-        const response = await API.put(`/vendor/orders/${orderId}/status`, { status })
+        const payload = { status }
+        if (cancelReason) {
+          payload.cancelReason = cancelReason
+        }
+        const response = await API.put(`/vendor/orders/${orderId}/status`, payload)
         return response.data
       } catch (err2) {
-        const response = await API.put(`/vendor/orders/${orderId}`, { status })
+        const payload = { status }
+        if (cancelReason) {
+          payload.cancelReason = cancelReason
+        }
+        const response = await API.put(`/vendor/orders/${orderId}`, payload)
         return response.data
       }
     }
@@ -113,10 +125,14 @@ export const vendorService = {
     const response = await API.put('/vendor/auth/order-acceptance-range', orderSettings)
     return response.data
   },
-  getMasterProducts: async (page = 1, limit = 3) => {
-    const response = await API.get('/products', {
-      params: { page, limit }
-    })
+  updateLocationCoordinates: async (latitude, longitude) => {
+    const response = await API.put('/vendor/auth/location', { latitude, longitude })
+    return response.data
+  },
+  getMasterProducts: async (page = 1, limit = 3, search = '') => {
+    const params = { page, limit }
+    if (search) params.search = search
+    const response = await API.get('/products', { params })
     return response.data
   },
   getNotifications: async () => {

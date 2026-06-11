@@ -55,6 +55,12 @@ const VendorProducts = () => {
   const [editingProduct, setEditingProduct] = useState(null)
   const [showAddDropdown, setShowAddDropdown] = useState(false)
   const [editableVariants, setEditableVariants] = useState([])
+  const [selectedProductForDetails, setSelectedProductForDetails] = useState(null)
+
+  const stripHtml = (html) => {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '')
+  }
 
   // Form Fields State
   const [prodName, setProdName] = useState('')
@@ -76,8 +82,8 @@ const VendorProducts = () => {
       try {
         const data = await vendorService.getProducts({ limit: 1000 })
         if (data) {
-          const list = Array.isArray(data) 
-            ? data 
+          const list = Array.isArray(data)
+            ? data
             : (data.vendorProducts || data.products || data.data || [])
           const cats = ['all', ...new Set(list.map(p => {
             const cat = p.Product?.categoryName || p.category || 'General'
@@ -115,10 +121,10 @@ const VendorProducts = () => {
           const list = data.vendorProducts || data.products || data.data || []
           setProducts(list)
           setIsServerPaginated(true)
-          
+
           const totalCount = data.total || data.count || list.length
           setServerTotalCount(totalCount)
-          
+
           if (data.totalPages !== undefined) {
             setServerTotalPages(data.totalPages)
           } else if (data.total !== undefined) {
@@ -170,10 +176,10 @@ const VendorProducts = () => {
     try {
       const response = await vendorService.getVendorProduct(pId)
       const freshProduct = response?.vendorProduct || response?.data || response?.product || response || product
-      
+
       setModalMode('edit')
       setEditingProduct(freshProduct)
-      
+
       const cleanPriceValue = (val) => {
         if (val === undefined || val === null) return 0
         if (typeof val === 'string') {
@@ -183,24 +189,24 @@ const VendorProducts = () => {
       }
 
       const rawVariants = freshProduct.variants || freshProduct.Product?.variants || []
-      
+
       const initialVariants = (rawVariants && rawVariants.length > 0)
         ? rawVariants.map(v => ({
-            variantId: v.variantId || v.id,
-            name: v.name || 'Default Variant',
-            price: cleanPriceValue(v.price),
-            discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-            isAvailable: v.isAvailable !== false,
-            image: v.image || (v.images && v.images[0])
-          }))
+          variantId: v.variantId || v.id,
+          name: v.name || 'Default Variant',
+          price: cleanPriceValue(v.price),
+          discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+          isAvailable: v.isAvailable !== false,
+          image: v.image || (v.images && v.images[0])
+        }))
         : [{
-            variantId: 'v-default',
-            name: 'Regular',
-            price: cleanPriceValue(freshProduct.Product?.price || freshProduct.price),
-            discountPrice: cleanPriceValue(freshProduct.discountPrice !== undefined && freshProduct.discountPrice !== null ? freshProduct.discountPrice : (freshProduct.Product?.price || freshProduct.price)),
-            isAvailable: freshProduct.isAvailable !== false && freshProduct.stock !== 0,
-            image: freshProduct.image || (freshProduct.images && freshProduct.images[0]) || freshProduct.Product?.primaryImage
-          }]
+          variantId: 'v-default',
+          name: 'Regular',
+          price: cleanPriceValue(freshProduct.Product?.price || freshProduct.price),
+          discountPrice: cleanPriceValue(freshProduct.discountPrice !== undefined && freshProduct.discountPrice !== null ? freshProduct.discountPrice : (freshProduct.Product?.price || freshProduct.price)),
+          isAvailable: freshProduct.isAvailable !== false && freshProduct.stock !== 0,
+          image: freshProduct.image || (freshProduct.images && freshProduct.images[0]) || freshProduct.Product?.primaryImage
+        }]
 
       setEditableVariants(initialVariants)
       setIsModalOpen(true)
@@ -208,10 +214,10 @@ const VendorProducts = () => {
     } catch (err) {
       console.error('Failed to load product details:', err)
       toast.error('Failed to load details from server, using local copy.', { id: loadToast })
-      
+
       setModalMode('edit')
       setEditingProduct(product)
-      
+
       const cleanPriceValue = (val) => {
         if (val === undefined || val === null) return 0
         if (typeof val === 'string') {
@@ -222,21 +228,21 @@ const VendorProducts = () => {
 
       const initialVariants = (product.variants && product.variants.length > 0)
         ? product.variants.map(v => ({
-            variantId: v.variantId || v.id,
-            name: v.name || 'Default Variant',
-            price: cleanPriceValue(v.price),
-            discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
-            isAvailable: v.isAvailable !== false,
-            image: v.image || (v.images && v.images[0])
-          }))
+          variantId: v.variantId || v.id,
+          name: v.name || 'Default Variant',
+          price: cleanPriceValue(v.price),
+          discountPrice: cleanPriceValue(v.discountPrice !== undefined && v.discountPrice !== null ? v.discountPrice : v.price),
+          isAvailable: v.isAvailable !== false,
+          image: v.image || (v.images && v.images[0])
+        }))
         : [{
-            variantId: 'v-default',
-            name: 'Regular',
-            price: cleanPriceValue(product.Product?.price || product.price),
-            discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
-            isAvailable: product.isAvailable !== false && product.stock !== 0,
-            image: product.image || (product.images && product.images[0]) || product.Product?.primaryImage
-          }]
+          variantId: 'v-default',
+          name: 'Regular',
+          price: cleanPriceValue(product.Product?.price || product.price),
+          discountPrice: cleanPriceValue(product.discountPrice !== undefined && product.discountPrice !== null ? product.discountPrice : (product.Product?.price || product.price)),
+          isAvailable: product.isAvailable !== false && product.stock !== 0,
+          image: product.image || (product.images && product.images[0]) || product.Product?.primaryImage
+        }]
 
       setEditableVariants(initialVariants)
       setIsModalOpen(true)
@@ -248,7 +254,7 @@ const VendorProducts = () => {
     e.preventDefault()
 
     const hasActualVariants = editingProduct?.variants && editingProduct.variants.length > 0
-    
+
     let payload = {}
     if (hasActualVariants) {
       payload = {
@@ -271,7 +277,7 @@ const VendorProducts = () => {
     try {
       await vendorService.updateProduct(editingProduct.id, payload)
       toast.success(`${editingProduct.Product?.name || editingProduct.name || 'Product'} updated successfully!`, { id: loadToast })
-      
+
       // Update local state products list
       setProducts(prev => prev.map(p => {
         if (p.id === editingProduct.id) {
@@ -298,7 +304,7 @@ const VendorProducts = () => {
         }
         return p
       }))
-      
+
       setIsModalOpen(false)
       setEditingProduct(null)
       setEditableVariants([])
@@ -324,18 +330,33 @@ const VendorProducts = () => {
   const getProductImage = (prod) => {
     if (!prod) return null;
     let imgPath = null;
-    
-    // Check first variant's image
-    const firstVariant = (prod.variants && prod.variants[0]) || (prod.Product?.variants && prod.Product.variants[0]);
-    if (firstVariant) {
-      imgPath = firstVariant.image || (firstVariant.images && firstVariant.images[0]?.url) || firstVariant.url;
-    }
-    
-    // Fallback to standard product image fields
+
+    // Check standard product image fields first
+    imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image || (prod.Product && (prod.Product.image || (prod.Product.images && prod.Product.images[0]?.url)));
+
+    // If not found, check first variant's image as fallback
     if (!imgPath) {
-      imgPath = prod.Product?.primaryImage || (prod.Product?.images && prod.Product.images[0]?.url) || prod.image;
+      const firstVariant = (prod.variants && prod.variants[0]) || (prod.Product?.variants && prod.Product.variants[0]);
+      if (firstVariant) {
+        imgPath = firstVariant.image || (firstVariant.images && firstVariant.images[0]?.url) || firstVariant.url;
+      }
     }
 
+    if (!imgPath) return null;
+    if (typeof imgPath === 'object') {
+      imgPath = imgPath.url || imgPath.image || imgPath.path || '';
+    }
+    if (typeof imgPath !== 'string' || !imgPath) return null;
+    const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com';
+    return `${baseUrlForImage.replace(/\/$/, '')}/${imgPath.replace(/^\//, '')}`;
+  }
+
+  const getVariantImage = (variant, parentProduct) => {
+    if (!variant) return null;
+    let imgPath = variant.image || (variant.images && variant.images[0]?.url) || variant.url;
+    if (!imgPath && parentProduct) {
+      imgPath = parentProduct.Product?.primaryImage || (parentProduct.Product?.images && parentProduct.Product.images[0]?.url) || parentProduct.image;
+    }
     if (!imgPath) return null;
     if (typeof imgPath === 'object') {
       imgPath = imgPath.url || imgPath.image || imgPath.path || '';
@@ -368,15 +389,15 @@ const VendorProducts = () => {
   // Filter products based on search query matching name or category, and selected tab category
   const filteredProducts = shouldFilterLocally
     ? products.filter(product => {
-        const name = (product.Product?.name || product.name || '').toLowerCase()
-        const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
-        const query = searchQuery.toLowerCase()
-        
-        const matchesSearch = name.includes(query) || category.includes(query)
-        const matchesCategory = selectedCategory === 'all' || category === selectedCategory.toLowerCase()
-        
-        return matchesSearch && matchesCategory
-      })
+      const name = (product.Product?.name || product.name || '').toLowerCase()
+      const category = (product.Product?.categoryName || product.category || 'General').toLowerCase()
+      const query = searchQuery.toLowerCase()
+
+      const matchesSearch = name.includes(query) || category.includes(query)
+      const matchesCategory = selectedCategory === 'all' || category === selectedCategory.toLowerCase()
+
+      return matchesSearch && matchesCategory
+    })
     : products
 
   // Pagination calculations
@@ -385,7 +406,7 @@ const VendorProducts = () => {
     : serverTotalPages
 
   const startIndex = (currentPage - 1) * itemsPerPage
-  
+
   const paginatedProducts = shouldFilterLocally
     ? filteredProducts.slice(startIndex, startIndex + itemsPerPage)
     : products
@@ -426,7 +447,6 @@ const VendorProducts = () => {
 
       {/* 2a. Desktop Sidebar (Static & Robust) */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-105 dark:border-gray-800 h-screen sticky top-0 shrink-0 z-35">
-        {/* Logo */}
         <div className="p-6 pb-6 flex items-center justify-between border-b border-gray-50 dark:border-gray-800">
           <Link to="/" className="inline-block hover:scale-105 transition-transform">
             <img src={logo} alt="Nearzo Logo" className="h-12 object-contain dark:filter dark:invert" />
@@ -475,7 +495,7 @@ const VendorProducts = () => {
         {isMobileSidebarOpen && (
           <>
             {/* Backdrop */}
-            <div 
+            <div
               onClick={() => setIsMobileSidebarOpen(false)}
               className="fixed inset-0 bg-black/40 backdrop-blur-sm z-45 md:hidden"
             />
@@ -540,13 +560,13 @@ const VendorProducts = () => {
       </AnimatePresence>
 
       {/* 3. Main content */}
-      <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 space-y-6 md:space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-3.5 sm:p-6 md:p-10 pb-24 md:pb-10 space-y-4 md:space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
 
         {/* Header Summary */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-800 pb-3 sm:pb-6">
           <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Product Catalog</h1>
-            <p className="text-gray-400 dark:text-gray-500 text-sm font-semibold">Manage your inventory, prices, and catalog categories.</p>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Product Catalogue</h1>
+            <p className="text-gray-400 dark:text-gray-500 text-sm font-semibold">Manage your product,prices,and variants.</p>
           </div>
 
           {/* Desktop Right Hand Toolbar actions */}
@@ -585,30 +605,30 @@ const VendorProducts = () => {
           </div>
         </div>
 
-        {/* CSS rule to hide horizontal scrollbar for categories tabs */}
-        <style>{`
-          .scrollbar-none::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-
         {/* Search & Actions Bar (Clean unified layout with category tabs) */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
+          {/* CSS rule to hide horizontal scrollbar for categories tabs */}
+          <style>{`
+            .scrollbar-none::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
+
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex-1 w-full flex items-center bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-4 rounded-3xl shadow-sm relative">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+            <div className="flex-1 w-full flex items-center bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-2.5 sm:p-4 rounded-3xl shadow-sm relative">
+              <Search className="absolute left-6 sm:left-7 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-4.5 sm:h-4.5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search catalog products by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-855 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-855 dark:text-white"
+                className="w-full pl-9 sm:pl-11 pr-4 py-2 sm:py-3 bg-gray-50/50 dark:bg-gray-850/50 border border-gray-100 dark:border-gray-855 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-650/20 text-gray-855 dark:text-white"
               />
             </div>
-            
+
             <button
               onClick={() => navigate('/vendor/master-products')}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer shrink-0"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer shrink-0"
             >
               <Plus className="w-4.5 h-4.5" /> Add New Product
             </button>
@@ -616,8 +636,8 @@ const VendorProducts = () => {
 
           {/* Dynamic Category Tabs */}
           {uniqueCategories.length > 1 && (
-            <div 
-              className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none" 
+            <div
+              className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {uniqueCategories.map((cat) => {
@@ -627,8 +647,8 @@ const VendorProducts = () => {
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-5 py-2.5 rounded-2xl text-xs font-black capitalize transition-all border-none cursor-pointer shrink-0
-                      ${isActive 
-                        ? 'bg-[#6C4CF1] text-white shadow-md shadow-purple-550/20' 
+                      ${isActive
+                        ? 'bg-[#6C4CF1] text-white shadow-md shadow-purple-550/20'
                         : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-850'
                       }`}
                   >
@@ -657,7 +677,7 @@ const VendorProducts = () => {
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                 {paginatedProducts.map((prod) => {
                   const imgUrl = getProductImage(prod)
                   const name = prod.Product?.name || prod.name || 'Unnamed Product'
@@ -673,19 +693,19 @@ const VendorProducts = () => {
                   if (hasVariants) {
                     variantCount = prod.variants.length
                     totalStock = prod.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
-                    
+
                     const firstV = prod.variants[0]
                     const discPrice = firstV.discountPrice !== null && firstV.discountPrice !== undefined ? firstV.discountPrice : firstV.price
                     const origPrice = firstV.price
-                    
+
                     priceDisplay = `₹${discPrice}`
                     originalPriceDisplay = `₹${origPrice}`
                   } else {
                     const origPrice = prod.price || prod.Product?.price || 0
                     const cleanPrice = typeof origPrice === 'string' ? Number(origPrice.replace(/[^0-9.]/g, '')) || 0 : Number(origPrice)
-                    
+
                     const discPrice = prod.discountPrice !== null && prod.discountPrice !== undefined ? prod.discountPrice : cleanPrice
-                    
+
                     priceDisplay = `₹${discPrice}`
                     originalPriceDisplay = `₹${cleanPrice}`
                     totalStock = prod.stock || 0
@@ -694,61 +714,63 @@ const VendorProducts = () => {
                   return (
                     <div
                       key={prod.id}
-                      className="bg-gray-50/30 dark:bg-gray-850/10 border border-gray-100 dark:border-gray-800 rounded-3xl p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
+                      onClick={() => setSelectedProductForDetails(prod)}
+                      className="bg-gray-50/30 dark:bg-gray-850/10 border border-gray-100 dark:border-gray-800 rounded-2xl sm:rounded-3xl p-3 sm:p-5 flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden cursor-pointer"
                     >
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {/* Product image representation */}
-                        <div className="aspect-square w-full rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative overflow-hidden">
+                        <div className="aspect-square w-full rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative overflow-hidden">
                           {imgUrl ? (
                             <img src={imgUrl} alt={name} className="object-cover w-full h-full" />
                           ) : (
-                            <Package className="w-10 h-10 text-[#6C4CF1] opacity-70" />
+                            <Package className="w-8 h-8 sm:w-10 sm:h-10 text-[#6C4CF1] opacity-70" />
                           )}
                         </div>
 
-                        <div className="space-y-1.5 text-left">
-                          <span className="text-[10px] font-black text-purple-650 uppercase tracking-wider block">
+                        <div className="space-y-1 sm:space-y-1.5 text-left">
+                          <span className="text-[9px] sm:text-[10px] font-black text-purple-650 uppercase tracking-wider block">
                             {category}
                           </span>
-                          <h4 className="font-extrabold text-sm text-gray-950 dark:text-white line-clamp-1" title={name}>{name}</h4>
-                          
+                          <h4 className="font-extrabold text-xs sm:text-sm text-gray-950 dark:text-white line-clamp-1" title={name}>{name}</h4>
+
                           {/* Price Display */}
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-sm font-black text-[#6C4CF1]">{priceDisplay}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+                            <span className="text-xs sm:text-sm font-black text-[#6C4CF1]">{priceDisplay}</span>
                             {hasVariants && prod.variants[0]?.name && (
-                              <span className="text-[10px] text-gray-400 font-bold">({prod.variants[0].name})</span>
+                              <span className="text-[9px] sm:text-[10px] text-gray-400 font-bold">({prod.variants[0].name})</span>
                             )}
                           </div>
-                          
-                          <div className="flex items-start justify-between mt-2">
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2">
                             <div className="flex flex-col text-left">
                               {hasVariants ? (
-                                <span className="text-[10px] text-gray-400 font-bold mt-0.5">{variantCount} {variantCount === 1 ? 'Variant' : 'Variants'}</span>
+                                <span className="text-[9px] sm:text-[10px] text-gray-400 font-bold mt-0.5">{variantCount} {variantCount === 1 ? 'Var' : 'Vars'}</span>
                               ) : (
-                                <span className="text-[10px] text-gray-400 font-bold mt-0.5">Simple Product</span>
+                                <span className="text-[9px] sm:text-[10px] text-gray-400 font-bold mt-0.5">Simple</span>
                               )}
                             </div>
                             {/* Actions area with premium Edit & Delete buttons */}
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleOpenEditModal(prod)
                                 }}
-                                className="px-3 py-2 bg-purple-50 hover:bg-[#6C4CF1] dark:bg-purple-950/20 text-[#6C4CF1] hover:text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-sm"
+                                className="p-2 sm:px-3 sm:py-2 bg-purple-50 hover:bg-[#6C4CF1] dark:bg-purple-950/20 text-[#6C4CF1] hover:text-white rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center gap-1 sm:gap-1.5 shadow-sm"
+                                title="Edit Product"
                               >
                                 <Edit className="w-3 h-3" />
-                                Edit
+                                <span className="hidden sm:inline">Edit</span>
                               </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setDeleteConfirmId(prod.id)
                                 }}
-                                className="p-2 bg-red-50 hover:bg-red-500 dark:bg-red-950/20 text-red-600 hover:text-white rounded-xl transition-all border-none cursor-pointer flex items-center justify-center shadow-sm"
+                                className="p-2 bg-red-50 hover:bg-red-500 dark:bg-red-950/20 text-red-650 hover:text-white rounded-lg sm:rounded-xl transition-all border-none cursor-pointer flex items-center justify-center shadow-sm"
                                 title="Delete Product"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -762,44 +784,66 @@ const VendorProducts = () => {
               {/* Dynamic Pagination Controls */}
               {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-100 dark:border-gray-800 pt-6">
-                  <span className="text-xs text-gray-400 font-bold">
+                  <span className="text-xs text-gray-400 font-bold hidden sm:inline">
                     Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalItemsCount)} of {totalItemsCount} items
                   </span>
-                  
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
 
-                    {Array.from({ length: totalPages }).map((_, idx) => {
-                      const pageNum = idx + 1
-                      const isCurrent = currentPage === pageNum
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-9 h-9 rounded-xl text-xs font-black transition-all cursor-pointer border-none
-                            ${isCurrent 
-                              ? 'bg-[#6C4CF1] text-white shadow-sm' 
-                              : 'bg-transparent text-gray-400 dark:text-gray-300 hover:text-[#6C4CF1] hover:bg-purple-50 dark:hover:bg-purple-950/20'
-                            }`}
-                        >
-                          {pageNum}
-                        </button>
-                      )
-                    })}
+                  <div className="flex items-center gap-1 w-full sm:w-auto justify-center">
+                    {/* Mobile Pagination Controls */}
+                    <div className="flex sm:hidden items-center gap-2 justify-between w-full">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 rounded-xl border border-gray-100 dark:border-gray-800 text-xs font-black transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white"
+                      >
+                        Prev
+                      </button>
+                      <span className="text-xs font-black text-gray-500 dark:text-gray-400">Page {currentPage} of {totalPages}</span>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 rounded-xl border border-gray-100 dark:border-gray-800 text-xs font-black transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white"
+                      >
+                        Next
+                      </button>
+                    </div>
 
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    {/* Desktop Pagination Controls */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      {Array.from({ length: totalPages }).map((_, idx) => {
+                        const pageNum = idx + 1
+                        const isCurrent = currentPage === pageNum
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-9 h-9 rounded-xl text-xs font-black transition-all cursor-pointer border-none
+                              ${isCurrent
+                                ? 'bg-[#6C4CF1] text-white shadow-sm'
+                                : 'bg-transparent text-gray-400 dark:text-gray-300 hover:text-[#6C4CF1] hover:bg-purple-50 dark:hover:bg-purple-950/20'
+                              }`}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      })}
+
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="w-9 h-9 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-center transition-all bg-white dark:bg-gray-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-250 hover:bg-[#6C4CF1] hover:text-white hover:border-[#6C4CF1]"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -892,7 +936,7 @@ const VendorProducts = () => {
                             const updated = [...editableVariants]
                             updated[index].isAvailable = checked
                             setEditableVariants(updated)
-                            
+
                             if (editingProduct?.id) {
                               const loadToast = toast.loading('Updating availability...')
                               try {
@@ -902,7 +946,7 @@ const VendorProducts = () => {
                                 console.error(err)
                                 const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update availability.'
                                 toast.error(errMsg, { id: loadToast })
-                                
+
                                 // Revert state
                                 const reverted = [...updated]
                                 reverted[index].isAvailable = !checked
@@ -923,7 +967,7 @@ const VendorProducts = () => {
                           <span className="text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide truncate">{variant.name}</span>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3.5">
                         <div className="text-left">
                           <span className="text-[8px] font-bold text-gray-400 block uppercase tracking-wider mb-1">Base Price</span>
@@ -1016,6 +1060,150 @@ const VendorProducts = () => {
                 >
                   Delete
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Product Details Modal dialog overlay */}
+      <AnimatePresence>
+        {selectedProductForDetails && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Modal backdrop with glassmorphism */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedProductForDetails(null)}
+              className="absolute inset-0 bg-black/45 backdrop-blur-md"
+            />
+
+            {/* Modal Sheet */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 w-[92%] sm:w-full sm:max-w-3xl rounded-[24px] sm:rounded-[32px] no-scrollbar shadow-2xl p-6 relative z-10 max-h-[90vh] overflow-y-auto space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-[#6C4CF1]">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-black text-sm tracking-tight text-gray-955 dark:text-white uppercase">
+                      Product Details
+                    </h3>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Catalog Information</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedProductForDetails(null)}
+                  className="w-8 h-8 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-650" />
+                </button>
+              </div>
+
+              {/* Product Info Content - Two Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                
+                {/* Left Column: Image */}
+                <div className="w-full">
+                  <div className="aspect-[4/3] w-full rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-50 dark:from-purple-950/20 dark:to-purple-900/10 flex items-center justify-center relative overflow-hidden border border-gray-100 dark:border-gray-800 shadow-inner">
+                    {getProductImage(selectedProductForDetails) ? (
+                      <img
+                        src={getProductImage(selectedProductForDetails)}
+                        alt={selectedProductForDetails.Product?.name || selectedProductForDetails.name}
+                        className="object-cover w-full h-full transform hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <Package className="w-16 h-16 text-[#6C4CF1] opacity-70" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Text & Details */}
+                <div className="space-y-4 text-left">
+                  {/* Name & Category */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black text-purple-650 uppercase tracking-wider block">
+                      {selectedProductForDetails.Product?.categoryName || selectedProductForDetails.category || 'General'}
+                    </span>
+                    <h4 className="font-extrabold text-lg text-gray-955 dark:text-white leading-tight">
+                      {selectedProductForDetails.Product?.name || selectedProductForDetails.name || 'Unnamed Product'}
+                    </h4>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1.5 bg-gray-50/50 dark:bg-gray-950/25 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-855">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Description</span>
+                    <p className="text-xs text-gray-650 dark:text-gray-300 font-semibold leading-relaxed max-h-40 overflow-y-auto pr-1">
+                      {stripHtml(selectedProductForDetails.Product?.description || selectedProductForDetails.description) || 'No description available for this product.'}
+                    </p>
+                  </div>
+
+                  {/* Pricing / Variants */}
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block font-black">Pricing</span>
+                    {selectedProductForDetails.variants && selectedProductForDetails.variants.length > 0 ? (
+                      <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                        {selectedProductForDetails.variants.map((variant, idx) => {
+                          const discPrice = variant.discountPrice !== null && variant.discountPrice !== undefined ? variant.discountPrice : variant.price
+                          const variantImg = getVariantImage(variant, selectedProductForDetails)
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-2.5 bg-purple-50/10 dark:bg-purple-950/5 border border-purple-100/10 rounded-xl gap-3"
+                            >
+                              <div className="flex items-center gap-3 text-left">
+                                {/* Variant Image */}
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0 overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
+                                  {variantImg ? (
+                                    <img src={variantImg} alt={variant.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-[#6C4CF1] opacity-70" />
+                                  )}
+                                </div>
+
+                                <div className="text-left">
+                                  <span className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-wide">{variant.name}</span>
+                                  {variant.unit && (
+                                    <span className="text-[9px] text-gray-400 block font-bold">Unit: {variant.unit}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 text-right shrink-0">
+                                <div className="flex flex-col">
+                                  <span className="text-[8px] font-bold text-gray-400 uppercase">Price</span>
+                                  <span className="text-xs font-black text-[#6C4CF1]">₹{discPrice}</span>
+                                  {Number(variant.price) > Number(discPrice) && (
+                                    <span className="text-[9px] text-gray-400 line-through">₹{variant.price}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="w-full">
+                        <div className="p-3.5 bg-purple-50/10 dark:bg-purple-950/5 border border-purple-100/10 rounded-xl flex flex-col justify-center text-left">
+                          <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Price</span>
+                          <span className="text-sm font-black text-[#6C4CF1]">
+                            ₹{selectedProductForDetails.discountPrice !== null && selectedProductForDetails.discountPrice !== undefined ? selectedProductForDetails.discountPrice : (selectedProductForDetails.price || selectedProductForDetails.Product?.price || 0)}
+                          </span>
+                          {Number(selectedProductForDetails.price || selectedProductForDetails.Product?.price) > Number(selectedProductForDetails.discountPrice) && (
+                            <span className="text-[9px] text-gray-400 line-through">₹{selectedProductForDetails.price || selectedProductForDetails.Product?.price}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </motion.div>
           </div>

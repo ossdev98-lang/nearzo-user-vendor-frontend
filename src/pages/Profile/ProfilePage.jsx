@@ -8,7 +8,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   User, Mail, Phone, MapPin, Edit3, Camera,
   ShoppingBag, Heart, CreditCard, Settings, LogOut, ChevronRight,
-  Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2, Moon
+  Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2, Moon,
+  Play, Pause
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
@@ -38,6 +39,66 @@ const ProfilePage = () => {
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null)
   const [orderFilter, setOrderFilter] = useState('30days')
+
+  // Voice note playback states
+  const [playingAudioId, setPlayingAudioId] = useState(null)
+  const [currentAudio, setCurrentAudio] = useState(null)
+
+  useEffect(() => {
+    return () => {
+      if (currentAudio) {
+        currentAudio.pause()
+      }
+    }
+  }, [currentAudio])
+
+  useEffect(() => {
+    if (!selectedOrderDetails && currentAudio) {
+      currentAudio.pause()
+      setPlayingAudioId(null)
+      setCurrentAudio(null)
+    }
+  }, [selectedOrderDetails, currentAudio])
+
+  const handleToggleVoicePlayback = (orderId, voiceInstruction) => {
+    if (!voiceInstruction) return
+
+    let audioUrl = voiceInstruction === 'dummy_audio'
+      ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+      : voiceInstruction
+
+    if (audioUrl && audioUrl !== 'dummy_audio' && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://') && !audioUrl.startsWith('blob:')) {
+      const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com';
+      audioUrl = `${baseUrlForImage.replace(/\/$/, '')}/${audioUrl.replace(/^\//, '')}`;
+    }
+    console.log('Playing audio from URL:', audioUrl)
+
+    if (playingAudioId === orderId && currentAudio) {
+      currentAudio.pause()
+      setPlayingAudioId(null)
+      setCurrentAudio(null)
+    } else {
+      if (currentAudio) {
+        currentAudio.pause()
+      }
+
+      try {
+        const audio = new Audio(audioUrl)
+        audio.play()
+        setPlayingAudioId(orderId)
+        setCurrentAudio(audio)
+
+        audio.onended = () => {
+          setPlayingAudioId(null)
+          setCurrentAudio(null)
+        }
+      } catch (err) {
+        console.error('Audio playback failed', err)
+        toast.error('Could not play back audio note')
+      }
+    }
+  }
+
 
   useEffect(() => {
     if (tabQuery !== activeTab) {
@@ -85,27 +146,29 @@ const ProfilePage = () => {
     setIsSearchingLocation(true)
     const toastId = toast.loading('Searching for location...')
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(mapSearchQuery)}&limit=1`)
-      const results = await response.json()
-      if (results && results.length > 0) {
-        const firstResult = results[0]
-        const lat = parseFloat(firstResult.lat)
-        const lon = parseFloat(firstResult.lon)
+      const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+      const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(mapSearchQuery)}&key=${apiKey}`)
+      const data = await response.json()
+      if (data && data.results && data.results.length > 0) {
+        const result = data.results[0]
+        const lat = parseFloat(result.geometry.location.lat)
+        const lon = parseFloat(result.geometry.location.lng)
 
         if (leafletMapInstanceRef.current && markerInstanceRef.current) {
           leafletMapInstanceRef.current.setView([lat, lon], 15)
           markerInstanceRef.current.setLatLng([lat, lon])
         }
 
-        setNewAddress(firstResult.display_name)
-        
-        const reverseResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-        const reverseData = await reverseResponse.json()
-        
+        setNewAddress(result.formatted_address)
+
+        const cityComp = result.address_components.find(c => c.types.includes('locality'))
+        const stateComp = result.address_components.find(c => c.types.includes('administrative_area_level_1'))
+        const pincodeComp = result.address_components.find(c => c.types.includes('postal_code'))
+
         setAddressDetails({
-          city: reverseData.address?.city || reverseData.address?.town || reverseData.address?.county || '',
-          state: reverseData.address?.state || '',
-          pincode: reverseData.address?.postcode || '',
+          city: cityComp?.long_name || '',
+          state: stateComp?.long_name || '',
+          pincode: pincodeComp?.long_name || '',
           latitude: lat,
           longitude: lon
         })
@@ -157,7 +220,7 @@ const ProfilePage = () => {
       const defaultLng = addressDetails.longitude || coordinates?.longitude || 75.90990165620354
 
       const L = window.L
-      
+
       // Clear any existing map on the element before initializing
       if (leafletMapInstanceRef.current) {
         leafletMapInstanceRef.current.remove()
@@ -185,14 +248,21 @@ const ProfilePage = () => {
 
       const handleLocationSelect = async (lat, lng) => {
         try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+          const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`)
           const data = await response.json()
-          if (data && data.display_name) {
-            setNewAddress(data.display_name)
+          if (data && data.results && data.results.length > 0) {
+            const result = data.results[0]
+            setNewAddress(result.formatted_address)
+
+            const cityComp = result.address_components.find(c => c.types.includes('locality'))
+            const stateComp = result.address_components.find(c => c.types.includes('administrative_area_level_1'))
+            const pincodeComp = result.address_components.find(c => c.types.includes('postal_code'))
+
             setAddressDetails({
-              city: data.address?.city || data.address?.town || data.address?.county || '',
-              state: data.address?.state || '',
-              pincode: data.address?.postcode || '',
+              city: cityComp?.long_name || '',
+              state: stateComp?.long_name || '',
+              pincode: pincodeComp?.long_name || '',
               latitude: lat,
               longitude: lng
             })
@@ -244,7 +314,6 @@ const ProfilePage = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser')
@@ -258,14 +327,28 @@ const ProfilePage = () => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
-          const data = await response.json()
-          if (data && data.display_name) {
-            setNewAddress(data.display_name)
+          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+          
+          let data = null
+          try {
+            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`)
+            data = await response.json()
+          } catch (err) {
+            console.warn("Google Maps reverse geocode error in handleGetCurrentLocation:", err)
+          }
+
+          if (data && data.status === "OK" && data.results && data.results.length > 0) {
+            const result = data.results[0]
+            setNewAddress(result.formatted_address)
+
+            const cityComp = result.address_components.find(c => c.types.includes('locality'))
+            const stateComp = result.address_components.find(c => c.types.includes('administrative_area_level_1'))
+            const pincodeComp = result.address_components.find(c => c.types.includes('postal_code'))
+
             setAddressDetails({
-              city: data.address?.city || data.address?.town || data.address?.county || '',
-              state: data.address?.state || '',
-              pincode: data.address?.postcode || '',
+              city: cityComp?.long_name || '',
+              state: stateComp?.long_name || '',
+              pincode: pincodeComp?.long_name || '',
               latitude: latitude,
               longitude: longitude
             })
@@ -273,6 +356,30 @@ const ProfilePage = () => {
             updateCoordinates(latitude, longitude)
             setShowFormFields(true)
             toast.success('Location fetched successfully!', { id: toastId })
+          } else {
+            // Fallback to OSM Nominatim
+            console.log("Falling back to OSM Nominatim for GPS address lookup...")
+            const osmRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
+            const osmData = await osmRes.json()
+            if (osmData && osmData.display_name) {
+              const display_name = osmData.display_name
+              const addr = osmData.address || {}
+
+              setNewAddress(display_name)
+              setAddressDetails({
+                city: addr.city || addr.town || addr.village || addr.municipality || '',
+                state: addr.state || '',
+                pincode: addr.postcode || '',
+                latitude: latitude,
+                longitude: longitude
+              })
+
+              updateCoordinates(latitude, longitude)
+              setShowFormFields(true)
+              toast.success('Location fetched successfully!', { id: toastId })
+            } else {
+              toast.error('Failed to get address from location', { id: toastId })
+            }
           }
         } catch (err) {
           toast.error('Failed to get address from location', { id: toastId })
@@ -996,8 +1103,7 @@ const ProfilePage = () => {
                                 >
                                   View Details
                                 </button>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${
-                                  status.toLowerCase() === 'delivered'
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${status.toLowerCase() === 'delivered'
                                     ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/20'
                                     : status.toLowerCase() === 'cancelled'
                                       ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'
@@ -1006,7 +1112,7 @@ const ProfilePage = () => {
                                         : status.toLowerCase() === 'processing'
                                           ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
                                           : 'bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20'
-                                }`}>
+                                  }`}>
                                   {status}
                                 </span>
                               </div>
@@ -1426,109 +1532,272 @@ const ProfilePage = () => {
       {/* Order Details Modal */}
       <AnimatePresence>
         {selectedOrderDetails && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => setSelectedOrderDetails(null)}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg border border-gray-100 dark:border-white/10 flex flex-col max-h-[90vh] overflow-hidden"
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10 flex justify-between items-center shrink-0">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-800">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Order Details
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-0.5">{selectedOrderDetails.orderNumber || `#NZ-${selectedOrderDetails.id}`}</p>
+                  <h2 className="font-black text-base text-gray-900 dark:text-white uppercase tracking-tight">Order Details</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs font-bold text-[#6C4CF1]">
+                      {selectedOrderDetails.orderNumber || (selectedOrderDetails.id ? `#NZ-${selectedOrderDetails.id.toString().substring(selectedOrderDetails.id.toString().length - 8).toUpperCase()}` : '#NZ-ORDER')}
+                    </p>
+                    <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded-lg
+                      ${selectedOrderDetails.status?.toLowerCase() === 'delivered' ? 'bg-green-50 text-green-600 dark:bg-green-950/20'
+                        : selectedOrderDetails.status?.toLowerCase() === 'processing' ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20'
+                          : selectedOrderDetails.status?.toLowerCase() === 'confirmed' ? 'bg-orange-50 text-orange-600 dark:bg-orange-950/20'
+                            : selectedOrderDetails.status?.toLowerCase() === 'cancelled' ? 'bg-red-50 text-red-600 dark:bg-red-950/20'
+                              : 'bg-purple-50 text-[#6C4CF1] dark:bg-purple-950/20'}`}>
+                      {selectedOrderDetails.status}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
+                    Ordered At: <span className="font-extrabold text-gray-600 dark:text-gray-300">
+                      {new Date(selectedOrderDetails.createdAt || selectedOrderDetails.date || Date.now()).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      }) + ' ' + new Date(selectedOrderDetails.createdAt || selectedOrderDetails.date || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </p>
                 </div>
+
                 <button
                   onClick={() => setSelectedOrderDetails(null)}
-                  className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer border-none bg-transparent"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
               {/* Modal Content */}
-              <div className="p-6 overflow-y-auto space-y-5 text-sm">
-                {/* Shop / Vendor Info */}
-                {selectedOrderDetails.Vendor && (
-                  <div className="bg-purple-500/5 dark:bg-purple-500/10 rounded-2xl p-4 border border-purple-500/10 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-600 font-bold shrink-0">
-                      {selectedOrderDetails.Vendor.shopName?.charAt(0) || 'S'}
+              <div className="p-6">
+                {/* 2 Column Layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Customer & Delivery Info */}
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center gap-2 px-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Customer & Delivery</span>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">{selectedOrderDetails.Vendor.shopName}</h4>
-                      <p className="text-xs text-gray-500">Contact: {selectedOrderDetails.Vendor.phone}</p>
-                    </div>
-                  </div>
-                )}
 
-                {/* Order Status & Date */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-3.5 border border-gray-100 dark:border-white/5">
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-bold block mb-1">Status</span>
-                    <span className="font-bold capitalize text-gray-900 dark:text-white">{selectedOrderDetails.status}</span>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-3.5 border border-gray-100 dark:border-white/5">
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-bold block mb-1">Payment Method</span>
-                    <span className="font-bold uppercase text-gray-900 dark:text-white">{selectedOrderDetails.paymentMethod || 'COD'}</span>
-                  </div>
-                </div>
-
-                {/* Address Details */}
-                <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-100 dark:border-white/5">
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-bold block mb-1">Delivery Address</span>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    {selectedOrderDetails.address}, {selectedOrderDetails.city}, {selectedOrderDetails.state} - {selectedOrderDetails.pincode}
-                  </p>
-                  {selectedOrderDetails.notes && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 bg-white dark:bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-white/5">
-                      <strong>Note:</strong> {selectedOrderDetails.notes}
-                    </p>
-                  )}
-                </div>
-
-                {/* Items List */}
-                <div>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-bold block mb-2">Items Order Summary</span>
-                  <div className="space-y-3 bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-100 dark:border-white/5">
-                    {(selectedOrderDetails.OrderItems || selectedOrderDetails.items || []).map((item, i) => {
-                      const name = item.productName || item.name || 'Product'
-                      const qty = item.quantity || 1
-                      const unit = item.unit || item.variant || ''
-                      const price = item.price || 0
-                      return (
-                        <div key={i} className="flex justify-between items-center text-xs py-1 text-gray-600 dark:text-gray-300 font-medium">
-                          <span>
-                            {name} {unit && `(${unit})`} <span className="font-black ml-1">x {qty}</span>
-                          </span>
-                          <span className="font-black text-gray-950 dark:text-white">₹{price * qty}</span>
+                    <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+                      {/* Customer details */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-xs">
+                          <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-[#6C4CF1] shrink-0">
+                            <User className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Customer Name</p>
+                            <span className="font-extrabold text-gray-850 dark:text-white truncate block">
+                              {selectedOrderDetails.customerName || selectedOrderDetails.customer?.name || profileData?.name || 'Customer'}
+                            </span>
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
 
-                {/* Pricing Summary */}
-                <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-100 dark:border-white/5 space-y-2">
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>Subtotal</span>
-                    <span>₹{selectedOrderDetails.subtotal || (Number(selectedOrderDetails.total) - Number(selectedOrderDetails.deliveryCharge || 0))}</span>
-                  </div>
-                  {Number(selectedOrderDetails.discount || 0) > 0 && (
-                    <div className="flex justify-between text-xs text-green-500">
-                      <span>Discount</span>
-                      <span>-₹{selectedOrderDetails.discount}</span>
+                        {(selectedOrderDetails.phone || selectedOrderDetails.customer?.phone || profileData?.phone) && (
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
+                              <Phone className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Phone</p>
+                              <span className="font-bold text-gray-700 dark:text-gray-300 block">
+                                {selectedOrderDetails.phone || selectedOrderDetails.customer?.phone || profileData?.phone}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {(selectedOrderDetails.email || selectedOrderDetails.customer?.email || profileData?.email) && (
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 shrink-0">
+                              <Mail className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Email Address</p>
+                              <span className="font-bold text-gray-700 dark:text-gray-300 truncate block">
+                                {selectedOrderDetails.email || selectedOrderDetails.customer?.email || profileData?.email}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedOrderDetails.address && (
+                        <div className="border-t border-gray-100 dark:border-gray-800/80 pt-4 space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Delivery Address</p>
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-[#6C4CF1] shrink-0 mt-0.5" />
+                            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed font-semibold">
+                              {selectedOrderDetails.address}, {selectedOrderDetails.city}, {selectedOrderDetails.state} - {selectedOrderDetails.pincode}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="border-t border-gray-100 dark:border-gray-800/80 pt-4 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Payment</p>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 font-bold">Method:</span>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg font-black text-[9px] uppercase
+                            ${(selectedOrderDetails.paymentMethod || 'COD') === 'COD' ? 'bg-yellow-50 text-yellow-600 dark:bg-yellow-950/20' : 'bg-green-50 text-green-600 dark:bg-green-950/20'}`}>
+                            {selectedOrderDetails.paymentMethod || 'COD'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500 font-bold">Status:</span>
+                          <span className="font-extrabold capitalize text-gray-700 dark:text-gray-300">
+                            {selectedOrderDetails.paymentStatus || 'Pending'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>Delivery Fee</span>
-                    <span>₹{selectedOrderDetails.deliveryCharge || 0}</span>
+
+                    {/* Cancellation Alert Banner */}
+                    {(selectedOrderDetails.status?.toLowerCase() === 'cancelled' || selectedOrderDetails.cancelReason) && (
+                      <div className="flex items-start gap-2.5 p-3.5 bg-red-50/40 dark:bg-red-955/10 border border-red-100/20 dark:border-red-900/20 rounded-2xl text-left mt-3">
+                        <div className="w-6 h-6 rounded-lg bg-red-105/40 dark:bg-red-955/20 flex items-center justify-center shrink-0">
+                          <X className="w-3.5 h-3.5 text-red-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-red-500 dark:text-red-400 font-black uppercase tracking-wider">Reason for Cancellation</p>
+                          <span className="text-xs text-red-750 dark:text-red-305 font-bold leading-normal mt-0.5 block italic">
+                            "{selectedOrderDetails.cancelReason || 'No reason provided.'}"
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shop / Vendor Info in Column 1 if present */}
+                    {selectedOrderDetails.Vendor && (
+                      <div className="space-y-3 mt-4">
+                        <div className="flex items-center gap-2 px-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Store Details</span>
+                        </div>
+                        <div className="bg-purple-500/5 dark:bg-purple-500/10 rounded-2xl p-4 border border-purple-500/10 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-purple-600/10 flex items-center justify-center text-purple-600 font-bold shrink-0">
+                            {selectedOrderDetails.Vendor.shopName?.charAt(0) || 'S'}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 dark:text-white">{selectedOrderDetails.Vendor.shopName}</h4>
+                            <p className="text-xs text-gray-500">Contact: {selectedOrderDetails.Vendor.phone}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="border-t border-gray-200 dark:border-white/10 my-2 pt-2 flex justify-between text-sm font-black text-gray-900 dark:text-white">
-                    <span>Total Paid</span>
-                    <span className="text-purple-600 dark:text-purple-400">₹{selectedOrderDetails.total}</span>
+
+                  {/* Right Column: Order Items & Instructions */}
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Order Items</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950/30 text-[#6C4CF1] rounded-lg text-[9px] font-black">
+                        {(selectedOrderDetails.OrderItems || selectedOrderDetails.items || []).length} {(selectedOrderDetails.OrderItems || selectedOrderDetails.items || []).length === 1 ? 'item' : 'items'}
+                      </span>
+                    </div>
+
+                    <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {(selectedOrderDetails.OrderItems || selectedOrderDetails.items || []).map((item, i) => {
+                          const name = item.productName || item.name || 'Product'
+                          const qty = item.quantity || 1
+                          const unit = item.unit || item.variant || ''
+                          const price = item.price || 0
+                          return (
+                            <div key={i} className="flex items-center justify-between bg-white dark:bg-gray-950 border border-gray-100/60 dark:border-gray-800/40 rounded-xl px-3.5 py-3 hover:border-purple-200 transition-colors">
+                              <div className="min-w-0 flex-1 mr-3 text-left">
+                                <p className="text-xs font-extrabold text-gray-950 dark:text-white truncate" title={name}>
+                                  {name} {unit && `(${unit})`}
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-bold mt-0.5">Qty: {qty}</p>
+                              </div>
+                              <span className="text-xs font-black text-[#6C4CF1] shrink-0">₹{price * qty}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Summary / Total Box */}
+                      <div className="border-t border-gray-100 dark:border-gray-800/80 pt-4 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-400 font-bold">Subtotal</span>
+                          <span className="font-extrabold text-gray-800 dark:text-gray-200">
+                            ₹{selectedOrderDetails.subtotal || (Number(selectedOrderDetails.total) - Number(selectedOrderDetails.deliveryCharge || 0))}
+                          </span>
+                        </div>
+                        {Number(selectedOrderDetails.discount || 0) > 0 && (
+                          <div className="flex justify-between items-center text-xs text-green-500">
+                            <span className="font-bold">Discount</span>
+                            <span className="font-extrabold">-₹{selectedOrderDetails.discount}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-400 font-bold">Delivery Fee</span>
+                          <span className="font-extrabold text-gray-800 dark:text-gray-200">
+                            {Number(selectedOrderDetails.deliveryCharge || 0) === 0 ? 'FREE' : `₹${selectedOrderDetails.deliveryCharge}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm font-black pt-1 border-t border-dashed border-gray-100 dark:border-gray-800 mt-1">
+                          <span className="text-gray-900 dark:text-white">Total Paid</span>
+                          <span className="text-base font-black text-purple-600 dark:text-purple-400">₹{selectedOrderDetails.total}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Instructions Section (Order Note / Voice Note) */}
+                    {(selectedOrderDetails.notes || selectedOrderDetails.audioNote || selectedOrderDetails.voiceInstruction) && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#6C4CF1]" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">Instructions</span>
+                        </div>
+                        <div className="bg-gray-50/40 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800/80 rounded-2xl p-5 space-y-4">
+                          {selectedOrderDetails.notes && (
+                            <div className="space-y-1.5 text-left">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">Order Note</p>
+                              <p className="text-xs text-gray-700 dark:text-gray-350 leading-relaxed font-semibold italic bg-amber-50/20 dark:bg-amber-955/10 border border-amber-100/10 rounded-xl p-3">
+                                "{selectedOrderDetails.notes}"
+                              </p>
+                            </div>
+                          )}
+
+                          {selectedOrderDetails.notes && (selectedOrderDetails.audioNote || selectedOrderDetails.voiceInstruction) && (
+                            <div className="border-t border-gray-100 dark:border-gray-800/60" />
+                          )}
+
+                          {(selectedOrderDetails.audioNote || selectedOrderDetails.voiceInstruction) && (
+                            <button
+                              onClick={() => handleToggleVoicePlayback(selectedOrderDetails.id, selectedOrderDetails.audioNote || selectedOrderDetails.voiceInstruction)}
+                              className={`w-fit flex items-center justify-start gap-2 px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase border transition-all cursor-pointer shadow-sm border-none
+                                ${playingAudioId === selectedOrderDetails.id
+                                  ? 'bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20'
+                                  : 'bg-purple-50 hover:bg-purple-100 text-[#6C4CF1] dark:bg-purple-900/15'}`}
+                            >
+                              {playingAudioId === selectedOrderDetails.id ? (
+                                <><Pause className="w-3.5 h-3.5 fill-red-600" /> Stop Listening</>
+                              ) : (
+                                <><Play className="w-3.5 h-3.5 fill-[#6C4CF1] ml-0.5" /> Listen Voice Note</>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
