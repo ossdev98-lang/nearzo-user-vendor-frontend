@@ -192,8 +192,8 @@ const Navbar = () => {
           try {
             const { latitude, longitude } = position.coords
             updateCoordinates(latitude, longitude)
-            const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
-            
+            const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
+
             let data = null
             try {
               const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`)
@@ -210,7 +210,7 @@ const Navbar = () => {
               const neighborhood = result.address_components.find(c => c.types.includes('neighborhood'))
               const locality = result.address_components.find(c => c.types.includes('locality'))
               primary = (subLocality || neighborhood || locality)?.long_name || 'Location Found'
-              
+
               updateLocation(primary, display_name || 'Details not available')
               setLocationModalOpen(false)
             } else {
@@ -255,8 +255,8 @@ const Navbar = () => {
       setApplying(true)
       try {
         const query = encodeURIComponent(manualLocation.trim())
-        const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
-        
+        const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
+
         let data = null
         try {
           const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}`)
@@ -639,8 +639,8 @@ const Navbar = () => {
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif.id)}
                                 className={`p-3 rounded-2xl transition-all cursor-pointer flex gap-3 ${notif.unread
-                                    ? 'bg-purple-50/50 dark:bg-purple-500/5 hover:bg-purple-50 dark:hover:bg-purple-500/10'
-                                    : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                                  ? 'bg-purple-50/50 dark:bg-purple-500/5 hover:bg-purple-50 dark:hover:bg-purple-500/10'
+                                  : 'hover:bg-gray-50 dark:hover:bg-white/5'
                                   }`}
                               >
                                 <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
@@ -704,8 +704,8 @@ const Navbar = () => {
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif.id)}
                                 className={`p-4 rounded-2xl transition-all flex gap-3 text-left ${notif.unread
-                                    ? 'bg-purple-50/50 dark:bg-purple-500/5'
-                                    : 'bg-gray-50/30 dark:bg-white/5'
+                                  ? 'bg-purple-50/50 dark:bg-purple-500/5'
+                                  : 'bg-gray-50/30 dark:bg-white/5'
                                   }`}
                               >
                                 <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">

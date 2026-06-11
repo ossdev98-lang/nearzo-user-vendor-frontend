@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { Store, User, Mail, Lock, Phone, FileText, MapPin, ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
+import { Store, User, Mail, Lock, Phone, FileText, MapPin, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Truck } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import logo from '../../assets/nearzo-logo.png'
@@ -25,6 +25,7 @@ const VendorRegisterPage = () => {
     phone: '',
     gstNo: '',
     shopRegisterNo: '',
+    delivery_option: 'self',
     latitude: '',
     longitude: '',
     aadharFront: null,
@@ -231,6 +232,28 @@ const VendorRegisterPage = () => {
                   <Input label="Shop Name *" name="shopName" value={formData.shopName} onChange={handleChange} error={errors.shopName} icon={<Store className="w-4 h-4 text-gray-400" />} placeholder="E.g. Fresh Mart" />
                   <Input label="GST Number" name="gstNo" value={formData.gstNo} onChange={handleChange} icon={<FileText className="w-4 h-4 text-gray-400" />} placeholder="Optional" />
                   <Input label="Shop Registration No" name="shopRegisterNo" value={formData.shopRegisterNo} onChange={handleChange} icon={<FileText className="w-4 h-4 text-gray-400" />} placeholder="Optional" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Delivery Option *
+                    </label>
+                    <div className="relative">
+                      <div className="flex items-center w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-white/5 focus-within:border-green-400 dark:focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-green-400/10 dark:focus-within:ring-emerald-400/10">
+                        <span className="text-gray-400 mr-3">
+                          <Truck className="w-4 h-4 text-gray-400" />
+                        </span>
+                        <select
+                          name="delivery_option"
+                          value={formData.delivery_option}
+                          onChange={handleChange}
+                          className="flex-1 outline-none bg-transparent text-sm text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 border-none pr-4 cursor-pointer"
+                          required
+                        >
+                          <option value="self" className="dark:bg-gray-900 dark:text-white">Self Delivery</option>
+                          <option value="personNeed" className="dark:bg-gray-900 dark:text-white">Need Delivery Person</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </motion.div>
               )}
 

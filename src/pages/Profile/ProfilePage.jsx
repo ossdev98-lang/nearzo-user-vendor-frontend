@@ -146,7 +146,7 @@ const ProfilePage = () => {
     setIsSearchingLocation(true)
     const toastId = toast.loading('Searching for location...')
     try {
-      const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+      const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(mapSearchQuery)}&key=${apiKey}`)
       const data = await response.json()
       if (data && data.results && data.results.length > 0) {
@@ -248,7 +248,7 @@ const ProfilePage = () => {
 
       const handleLocationSelect = async (lat, lng) => {
         try {
-          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
+          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
           const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`)
           const data = await response.json()
           if (data && data.results && data.results.length > 0) {
@@ -327,8 +327,8 @@ const ProfilePage = () => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords
-          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || 'AIzaSyASnQjFGhJ_GFN6g2CjDHphESb5CoN6A68'
-          
+          const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
+
           let data = null
           try {
             const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`)
@@ -1104,14 +1104,14 @@ const ProfilePage = () => {
                                   View Details
                                 </button>
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${status.toLowerCase() === 'delivered'
-                                    ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/20'
-                                    : status.toLowerCase() === 'cancelled'
-                                      ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-                                      : status.toLowerCase() === 'confirmed'
-                                        ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
-                                        : status.toLowerCase() === 'processing'
-                                          ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-                                          : 'bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20'
+                                  ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-500/20'
+                                  : status.toLowerCase() === 'cancelled'
+                                    ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'
+                                    : status.toLowerCase() === 'confirmed'
+                                      ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                                      : status.toLowerCase() === 'processing'
+                                        ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
+                                        : 'bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20'
                                   }`}>
                                   {status}
                                 </span>
