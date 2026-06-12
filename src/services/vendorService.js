@@ -9,16 +9,25 @@ export const vendorService = {
     const response = await API.get('/vendors/nearby', { params })
     return response.data
   },
-  getShopDetails: async (vendorId) => {
-    const response = await API.get(`/vendors/${vendorId}/shop`)
+  getShopDetails: async (vendorId, page = 1, limit = 20, category = '', search = '') => {
+    const params = {}
+    if (page) params.page = page
+    if (limit) params.limit = limit
+    if (category) params.category = category
+    if (search) params.search = search
+
+    const response = await API.get(`/vendors/${vendorId}/shop`, { params })
     return response.data
   },
   getBestSellingProducts: async () => {
     const response = await API.get('/vendors/products/best-selling')
     return response.data
   },
-  getProductDetails: async (productId) => {
-    const response = await API.get(`/vendors/products/${productId}`)
+  getProductDetails: async (productId, page = 1, limit = 20) => {
+    const params = {}
+    if (page) params.page = page
+    if (limit) params.limit = limit
+    const response = await API.get(`/vendors/products/${productId}`, { params })
     return response.data
   },
   getOriginalProductDetails: async (productId) => {

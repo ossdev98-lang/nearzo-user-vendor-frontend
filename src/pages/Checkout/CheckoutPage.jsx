@@ -5,9 +5,10 @@ import { ChevronLeft, MapPin, CreditCard, Banknote, ShieldCheck, CheckCircle2, M
 import toast from 'react-hot-toast'
 import { userService } from '../../services/userService'
 import { orderService } from '../../services/orderService'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const CheckoutPage = () => {
-  const { cart, cartTotal, clearCart, user, setIsCartOpen, cartDeliveryDetails } = useApp()
+  const { cart, cartTotal, clearCart, user, setIsCartOpen, cartDeliveryDetails, updateCoordinates, updateLocation } = useApp()
   const navigate = useNavigate()
   const [paymentMethod, setPaymentMethod] = useState('cod')
 
@@ -19,6 +20,8 @@ const CheckoutPage = () => {
   const [placingOrder, setPlacingOrder] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [placedOrderAmount, setPlacedOrderAmount] = useState(0)
+  const [activeAddressId, setActiveAddressId] = useState(() => localStorage.getItem('selectedAddressId') || '')
+  const [showAddressSelector, setShowAddressSelector] = useState(false)
 
   // Voice recording states
   const [mediaRecorder, setMediaRecorder] = useState(null)
@@ -142,10 +145,41 @@ const CheckoutPage = () => {
     fetchAddresses()
   }, [])
 
-  const selectedAddressId = localStorage.getItem('selectedAddressId')
-  const defaultAddress = selectedAddressId 
-    ? addresses.find(a => String(a.id) === String(selectedAddressId)) || addresses.find(a => a.isDefault) || addresses[0]
+  const defaultAddress = activeAddressId 
+    ? addresses.find(a => String(a.id) === String(activeAddressId)) || addresses.find(a => a.isDefault) || addresses[0]
     : addresses.find(a => a.isDefault) || addresses[0]
+
+  const handleSelectAddress = (addr) => {
+    localStorage.setItem('selectedAddressId', String(addr.id))
+    setActiveAddressId(String(addr.id))
+    
+    // Update coordinates if available
+    if (addr.latitude && addr.longitude) {
+      updateCoordinates(Number(addr.latitude), Number(addr.longitude))
+    }
+    
+    // Update location text in Navbar
+    const addressParts = (addr.address || '').split(',').map(p => p.trim()).filter(Boolean)
+    let primary = addressParts[0] || 'Custom Location'
+    if (addressParts.length > 1 && (
+      /^\d+$/.test(primary) || 
+      primary.length <= 4 || 
+      primary.toLowerCase().startsWith('flat') || 
+      primary.toLowerCase().startsWith('house') || 
+      primary.toLowerCase().startsWith('shop') || 
+      primary.toLowerCase().startsWith('plot') ||
+      primary.toLowerCase().startsWith('ward') ||
+      primary.toLowerCase().startsWith('no') ||
+      primary.toLowerCase().startsWith('#')
+    )) {
+      primary = addressParts[1]
+    }
+    const secondary = `${addr.address}, ${addr.city}`
+    updateLocation(primary, secondary)
+    
+    setShowAddressSelector(false)
+    toast.success(`Delivery address changed to ${primary}!`)
+  }
 
   const handlePlaceOrder = async () => {
     if (cart.length === 0) {
@@ -237,7 +271,7 @@ const CheckoutPage = () => {
                   <MapPin className="w-5 h-5 text-purple-600" />
                   Delivery Address
                 </h2>
-                <button onClick={() => navigate('/profile')} className="text-sm font-bold text-purple-600 hover:underline">
+                <button onClick={() => setShowAddressSelector(true)} className="text-sm font-bold text-purple-600 hover:underline">
                   Change
                 </button>
               </div>
@@ -322,72 +356,65 @@ const CheckoutPage = () => {
               />
 
               {/* Voice Note Module */}
-              <div className="pt-2 border-t border-dashed border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-4.5 h-4.5 text-purple-600 shrink-0" />
-                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Voice Instruction</span>
-                </div>
+              <div className="pt-2 border-t border-dashed border-gray-100 dark:border-gray-800 flex items-center justify-start gap-3">
+                {/* Status: Idle, No Recording */}
+                {!isRecording && !audioUrl && (
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/10 dark:hover:bg-purple-900/20 text-purple-650 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border-none cursor-pointer"
+                  >
+                    <Mic className="w-3.5 h-3.5" /> Record voice note
+                  </button>
+                )}
 
-                <div className="flex items-center gap-2">
-                  {/* Status: Idle, No Recording */}
-                  {!isRecording && !audioUrl && (
+                {/* Status: Active Recording */}
+                {isRecording && (
+                  <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 px-3.5 py-1.5 rounded-xl">
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-bold text-red-650 tracking-wider font-mono">
+                      {formatDuration(recordingDuration)}
+                    </span>
                     <button
                       type="button"
-                      onClick={startRecording}
-                      className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/10 dark:hover:bg-purple-900/20 text-purple-650 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border-none cursor-pointer"
+                      onClick={stopRecording}
+                      className="p-1 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center transition-all border-none cursor-pointer"
                     >
-                      <Mic className="w-3.5 h-3.5" /> Record voice note
+                      <Square className="w-3 h-3 fill-white" />
                     </button>
-                  )}
+                  </div>
+                )}
 
-                  {/* Status: Active Recording */}
-                  {isRecording && (
-                    <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 px-3.5 py-1.5 rounded-xl">
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                      </span>
-                      <span className="text-xs font-bold text-red-650 tracking-wider font-mono">
-                        {formatDuration(recordingDuration)}
-                      </span>
+                {/* Status: Completed Recording, Playback Available */}
+                {audioUrl && !isRecording && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/10 border border-purple-100/10 px-3 py-1.5 rounded-xl">
                       <button
                         type="button"
-                        onClick={stopRecording}
-                        className="p-1 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center transition-all border-none cursor-pointer"
+                        onClick={handlePlayAudio}
+                        className="w-7 h-7 rounded-lg bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white flex items-center justify-center transition-all border-none cursor-pointer"
+                        title={isPlaying ? "Pause playback" : "Play back voice instruction"}
                       >
-                        <Square className="w-3 h-3 fill-white" />
+                        {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white ml-0.5" />}
                       </button>
+                      <span className="text-[10px] font-bold text-purple-650 uppercase tracking-wider px-1">
+                        {isPlaying ? 'Playing...' : 'Voice Note'}
+                      </span>
                     </div>
-                  )}
 
-                  {/* Status: Completed Recording, Playback Available */}
-                  {audioUrl && !isRecording && (
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/10 border border-purple-100/10 px-3 py-1.5 rounded-xl">
-                        <button
-                          type="button"
-                          onClick={handlePlayAudio}
-                          className="w-7 h-7 rounded-lg bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white flex items-center justify-center transition-all border-none cursor-pointer"
-                          title={isPlaying ? "Pause playback" : "Play back voice instruction"}
-                        >
-                          {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white ml-0.5" />}
-                        </button>
-                        <span className="text-[10px] font-bold text-purple-650 uppercase tracking-wider px-1">
-                          {isPlaying ? 'Playing...' : 'Voice Note'}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={deleteRecording}
-                        className="p-2 bg-red-55 hover:bg-red-100 dark:bg-red-950/10 dark:hover:bg-red-950/20 text-red-655 rounded-xl transition-all border-none cursor-pointer"
-                        title="Delete voice note"
-                      >
-                        <Trash2 className="w-4.5 h-4.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={deleteRecording}
+                      className="p-2 bg-red-55 hover:bg-red-100 dark:bg-red-950/10 dark:hover:bg-red-950/20 text-red-655 rounded-xl transition-all border-none cursor-pointer"
+                      title="Delete voice note"
+                    >
+                      <Trash2 className="w-4.5 h-4.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -584,6 +611,131 @@ const CheckoutPage = () => {
           </div>
         </div>
       )}
+
+      {/* Address Selection Modal */}
+      <AnimatePresence>
+        {showAddressSelector && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4 animate-fadeIn">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setShowAddressSelector(false)}
+            />
+
+            {/* Modal Card */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', duration: 0.5 }}
+              className="bg-white dark:bg-gray-900 rounded-[32px] max-w-lg w-full shadow-2xl relative z-[151] border border-gray-100 dark:border-white/5 overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Choose Delivery Address</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select where you want your order to be delivered</p>
+                </div>
+                <button 
+                  onClick={() => setShowAddressSelector(false)}
+                  className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Body / List */}
+              <div className="p-6 overflow-y-auto custom-scrollbar space-y-4 flex-1 text-left">
+                {addresses.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No delivery address found</p>
+                    <button 
+                      onClick={() => {
+                        setShowAddressSelector(false)
+                        navigate('/profile/addresses')
+                      }}
+                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition-all shadow-md"
+                    >
+                      Add New Address
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {addresses.map((addr) => {
+                      const isSelected = defaultAddress && String(defaultAddress.id) === String(addr.id)
+                      const label = addr.addressType === 'office' ? 'Work' : addr.addressType === 'other' ? (addr.otherAddress || 'Other') : addr.addressType || 'Home'
+
+                      return (
+                        <div 
+                          key={addr.id}
+                          onClick={() => handleSelectAddress(addr)}
+                          className={`group p-4 rounded-2xl border transition-all duration-300 flex items-start gap-4 cursor-pointer relative overflow-hidden ${
+                            isSelected 
+                              ? 'border-purple-600 bg-purple-50/30 dark:bg-purple-900/10' 
+                              : 'border-gray-250 hover:border-purple-300 dark:border-white/5 dark:hover:border-purple-900/30 hover:bg-gray-50/50 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
+                            isSelected 
+                              ? 'bg-purple-600 text-white' 
+                              : 'bg-gray-100 dark:bg-white/5 text-gray-500 group-hover:text-purple-600'
+                          }`}>
+                            <MapPin className="w-5 h-5" />
+                          </div>
+
+                          <div className="flex-1 min-w-0 pr-6">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-sm font-extrabold text-gray-900 dark:text-white capitalize truncate">{label}</span>
+                              {addr.isDefault && (
+                                <span className="px-2 py-0.5 rounded-full bg-purple-600/10 text-purple-600 text-[9px] font-extrabold uppercase tracking-wider">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-650 dark:text-gray-350 leading-relaxed font-medium break-words">
+                              {addr.address}, {addr.city}, {addr.state} - {addr.pincode}
+                            </p>
+                          </div>
+
+                          {/* Selected Radio Indicator */}
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              isSelected ? 'border-purple-600 bg-purple-650' : 'border-gray-350 dark:border-gray-600 group-hover:border-purple-400'
+                            }`}>
+                              {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer / Manage Button */}
+              {addresses.length > 0 && (
+                <div className="px-6 py-4 bg-gray-50 dark:bg-white/5 border-t border-gray-100 dark:border-white/5 flex items-center justify-between shrink-0">
+                  <span className="text-xs text-gray-500">Need to deliver somewhere else?</span>
+                  <button 
+                    onClick={() => {
+                      setShowAddressSelector(false)
+                      navigate('/profile/addresses')
+                    }}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 transition-colors flex items-center gap-1 border-none bg-transparent cursor-pointer"
+                  >
+                    Manage Addresses →
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

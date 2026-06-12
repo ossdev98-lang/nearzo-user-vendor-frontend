@@ -35,6 +35,23 @@ const ShopPage = () => {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
+  const productsSectionRef = useRef(null)
+
+  const handleCategorySelect = (cat) => {
+    setSelectedCategory(cat)
+    setCurrentPage(1)
+  }
+
+  // Scroll to products section when page changes
+  useEffect(() => {
+    if (currentPage > 1 && productsSectionRef.current) {
+      productsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [currentPage])
 
   const scrollRef = useRef(null)
   const [isScrollable, setIsScrollable] = useState(false)
@@ -69,11 +86,33 @@ const ShopPage = () => {
     const fetchShopDetails = async () => {
       setLoading(true)
       try {
-        const data = await vendorService.getShopDetails(id)
+        const data = await vendorService.getShopDetails(id, currentPage, itemsPerPage, selectedCategory || '', searchQuery || '')
         if (data && data.success) {
           console.log('--- SHOP DATA ---', data.shop)
           setShopData(data.shop)
           setCategoriesList(data.categories || [])
+
+          // Set dynamic pagination from backend keys safely
+          if (data.pages !== undefined) {
+            const parsedPages = Number(data.pages)
+            if (!isNaN(parsedPages)) setTotalPages(parsedPages)
+          }
+          if (data.totalProducts !== undefined) {
+            const parsedTotal = Number(data.totalProducts)
+            if (!isNaN(parsedTotal)) setTotalProducts(parsedTotal)
+          }
+          if (data.limit !== undefined) {
+            const parsedLimit = Number(data.limit)
+            if (!isNaN(parsedLimit) && parsedLimit !== itemsPerPage) {
+              setItemsPerPage(parsedLimit)
+            }
+          }
+          if (data.page !== undefined) {
+            const parsedPage = Number(data.page)
+            if (!isNaN(parsedPage) && parsedPage !== currentPage) {
+              setCurrentPage(parsedPage)
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching shop details:', error)
@@ -84,7 +123,7 @@ const ShopPage = () => {
     if (id) {
       fetchShopDetails()
     }
-  }, [id])
+  }, [id, currentPage, selectedCategory, searchQuery])
 
   if (loading) {
     return (
@@ -156,7 +195,6 @@ const ShopPage = () => {
 
   const categories = ['Home', ...categoriesList.map(c => c.name)]
 
-  // Helper to extract mapped products
   const getProducts = () => {
     let list = []
     const targetCategories = selectedCategory
@@ -186,7 +224,7 @@ const ShopPage = () => {
               list.push({
                 id: prod.id,
                 name: prod.name,
-                storeName: shopData.shopName || 'Nearzo Store',
+                storeName: shopData?.shopName || 'Nearzo Store',
                 category: cat.name,
                 price: prod.discountPrice || prod.price,
                 unit: prod.unit || 'piece',
@@ -203,7 +241,6 @@ const ShopPage = () => {
       }
     })
 
-    // If there is a search query, filter by name
     if (searchQuery.trim()) {
       return list.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
     }
@@ -212,6 +249,27 @@ const ShopPage = () => {
   }
 
   const products = getProducts()
+
+  const paginatedProducts = totalProducts > products.length
+    ? products
+    : products.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const getPageNumbers = () => {
+    const pages = []
+    const range = 1
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - range && i <= currentPage + range)
+      ) {
+        pages.push(i)
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...')
+      }
+    }
+    return pages
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 pt-20">
@@ -233,10 +291,10 @@ const ShopPage = () => {
             {/* Store Avatar Thumbnail */}
             <div className="shrink-0">
               <div className="w-16 h-16 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-white/10 backdrop-blur-md rounded-2xl p-1 md:p-1.5 shadow-2xl border border-white/20">
-                <img 
-                  src={shop.logo || shop.banner || dummyBanner} 
-                  alt={shop.name} 
-                  className="w-full h-full object-cover rounded-xl" 
+                <img
+                  src={shop.logo || shop.banner || dummyBanner}
+                  alt={shop.name}
+                  className="w-full h-full object-cover rounded-xl"
                   crossOrigin="anonymous"
                   onError={(e) => {
                     e.target.onerror = null;
@@ -289,41 +347,41 @@ const ShopPage = () => {
 
             {/* Slider Section */}
             <div className="relative flex-1 flex items-center min-w-0">
-                {isScrollable && (
-                  <button
-                    onClick={() => scroll('left')}
-                    className="hidden sm:flex absolute left-0 z-10 p-1 bg-gradient-to-r from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                )}
-
-                <div
-                  ref={scrollRef}
-                  className="flex items-center gap-4 sm:gap-8 text-xs sm:text-sm font-medium overflow-x-auto no-scrollbar scroll-smooth sm:px-8 w-full"
+              {isScrollable && (
+                <button
+                  onClick={() => scroll('left')}
+                  className="hidden sm:flex absolute left-0 z-10 p-1 bg-gradient-to-r from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
                 >
-                  {categories.map((cat, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedCategory(cat === 'Home' ? null : cat)}
-                      className={`whitespace-nowrap pb-1 transition-colors ${(cat === 'Home' && !selectedCategory) || (cat === selectedCategory)
-                        ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                        }`}
-                    >
-                      {cat.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
 
-                {isScrollable && (
+              <div
+                ref={scrollRef}
+                className="flex items-center gap-4 sm:gap-8 text-xs sm:text-sm font-medium overflow-x-auto no-scrollbar scroll-smooth sm:px-8 w-full"
+              >
+                {categories.map((cat, idx) => (
                   <button
-                    onClick={() => scroll('right')}
-                    className="hidden sm:flex absolute right-0 z-10 p-1 bg-gradient-to-l from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
+                    key={idx}
+                    onClick={() => handleCategorySelect(cat === 'Home' ? null : cat)}
+                    className={`whitespace-nowrap pb-1 transition-colors ${(cat === 'Home' && !selectedCategory) || (cat === selectedCategory)
+                      ? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    {cat.toUpperCase()}
                   </button>
-                )}
+                ))}
+              </div>
+
+              {isScrollable && (
+                <button
+                  onClick={() => scroll('right')}
+                  className="hidden sm:flex absolute right-0 z-10 p-1 bg-gradient-to-l from-white/90 via-white/80 to-transparent dark:from-gray-950/90 dark:via-gray-950/80 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
           </div>
@@ -331,7 +389,7 @@ const ShopPage = () => {
       </div>
 
       {/* Main Banner Image (like "Discover what's new") */}
-      <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-12">
+      {/* <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-12">
         <div className="relative rounded-2xl overflow-hidden h-[150px] sm:h-[200px] lg:h-[250px]">
           <img
             src={shop.banner || dummyBanner}
@@ -352,12 +410,65 @@ const ShopPage = () => {
             </p>
           </div>
         </div>
+      </div> */}
+
+      {/* Heading instead of banner */}
+      <div ref={productsSectionRef} className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 mt-8 mb-6">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          Discover what's new at {shop.name}.
+        </h2>
       </div>
 
       {/* Products Section */}
-      <div className="pb-20">
-        <ShopProductsSection selectedCategory={selectedCategory} products={products} isShopClosed={shop.workMode === false} />
+      <div className="pb-8">
+        <ShopProductsSection selectedCategory={selectedCategory} products={paginatedProducts} isShopClosed={shop.workMode === false} />
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pb-20">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="p-2.5 rounded-xl border border-gray-250 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            {getPageNumbers().map((pageNum, idx) => {
+              if (pageNum === '...') {
+                return (
+                  <span key={`dots-${idx}`} className="px-3 py-2 text-gray-450 dark:text-gray-500 font-medium">
+                    ...
+                  </span>
+                )
+              }
+              const isActive = pageNum === currentPage
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-xl text-sm font-bold transition-all duration-300 ${isActive
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
+                    : 'border border-gray-250 dark:border-white/10 text-gray-750 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                    }`}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="p-2.5 rounded-xl border border-gray-250 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
     </div>
   )

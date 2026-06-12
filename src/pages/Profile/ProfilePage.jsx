@@ -9,7 +9,7 @@ import {
   User, Mail, Phone, MapPin, Edit3, Camera,
   ShoppingBag, Heart, CreditCard, Settings, LogOut, ChevronRight,
   Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2, Moon,
-  Play, Pause
+  Play, Pause, Eye, EyeOff
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
@@ -314,6 +314,17 @@ const ProfilePage = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  useEffect(() => {
+    if (!showPasswordModal) {
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
+    }
+  }, [showPasswordModal])
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser')
@@ -905,27 +916,7 @@ const ProfilePage = () => {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => {
-                                      localStorage.setItem('selectedAddressId', addr.id)
 
-                                      // Dynamically update coordinates
-                                      if (addr.latitude && addr.longitude) {
-                                        updateCoordinates(parseFloat(addr.latitude), parseFloat(addr.longitude))
-                                      }
-
-                                      // Dynamically update primary and secondary location text in header
-                                      const label = addr.addressType === 'office' ? 'Work' : addr.addressType === 'other' ? (addr.otherAddress || 'Other') : addr.addressType || 'Home'
-                                      const addressShort = addr.address?.length > 30 ? addr.address.substring(0, 30) + '...' : addr.address
-                                      updateLocation(label, addressShort || addr.city || 'Your area')
-
-                                      toast.success('Address selected for delivery')
-                                      navigate('/checkout')
-                                    }}
-                                    className="text-sm font-bold text-green-600 hover:text-green-700"
-                                  >
-                                    Select
-                                  </button>
                                   <button
                                     onClick={() => {
                                       setEditingAddressId(addr.id)
@@ -1484,33 +1475,60 @@ const ProfilePage = () => {
               <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Current Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
-                    placeholder="Enter current password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      className="w-full p-3.5 pr-12 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">New Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
-                    placeholder="Enter new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      className="w-full p-3.5 pr-12 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    className="w-full p-3.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
-                    placeholder="Confirm new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      className="w-full p-3.5 pr-12 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white transition-all"
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={handleChangePassword}

@@ -58,54 +58,6 @@ export const AppProvider = ({ children }) => {
     return { latitude: 22.760287481529783, longitude: 75.90990165620354 } // Default
   })
 
-  // Synchronize dynamic coordinates to the backend if logged in
-  useEffect(() => {
-    const isLoggedIn = !!localStorage.getItem('token')
-    const role = localStorage.getItem('role')
-    if (!isLoggedIn || role === 'vendor') return
-
-    const syncLocationToBackend = async () => {
-      try {
-        if (coordinates && coordinates.latitude && coordinates.longitude) {
-          await authService.updateLocation(coordinates.latitude, coordinates.longitude)
-          console.log('Location successfully synchronized to backend:', coordinates)
-        }
-      } catch (err) {
-        console.error('Failed to synchronize location to backend:', err)
-      }
-    }
-
-    const timer = setTimeout(() => {
-      syncLocationToBackend()
-    }, 400)
-
-    return () => clearTimeout(timer)
-  }, [coordinates])
-
-  // Synchronize dark/light mode with DOM documentElement and localStorage
-  useEffect(() => {
-    try {
-      if (isDarkMode) {
-        document.documentElement.classList.add('dark')
-        localStorage.setItem('theme', 'dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-        localStorage.setItem('theme', 'light')
-      }
-    } catch (e) {
-      console.error('Failed to update theme in DOM:', e)
-    }
-  }, [isDarkMode])
-
-  // Synchronize cart with localStorage whenever it changes (only for guest users)
-  useEffect(() => {
-    const isLoggedIn = !!localStorage.getItem('user')
-    if (isLoggedIn) return
-    try {
-      localStorage.setItem('cart', JSON.stringify(cart))
-    } catch { }
-  }, [cart])
-
   // Helper to fetch cart from API
   const fetchCart = useCallback(async () => {
     const role = localStorage.getItem('role')
@@ -151,6 +103,57 @@ export const AppProvider = ({ children }) => {
       console.error('Failed to fetch cart:', err)
     }
   }, [])
+
+  // Synchronize dynamic coordinates to the backend if logged in
+  useEffect(() => {
+    const isLoggedIn = !!localStorage.getItem('token')
+    const role = localStorage.getItem('role')
+    if (!isLoggedIn || role === 'vendor') return
+
+    const syncLocationToBackend = async () => {
+      try {
+        if (coordinates && coordinates.latitude && coordinates.longitude) {
+          await authService.updateLocation(coordinates.latitude, coordinates.longitude)
+          console.log('Location successfully synchronized to backend:', coordinates)
+          await fetchCart()
+        }
+      } catch (err) {
+        console.error('Failed to synchronize location to backend:', err)
+      }
+    }
+
+    const timer = setTimeout(() => {
+      syncLocationToBackend()
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [coordinates, fetchCart])
+
+  // Synchronize dark/light mode with DOM documentElement and localStorage
+  useEffect(() => {
+    try {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+        localStorage.setItem('theme', 'light')
+      }
+    } catch (e) {
+      console.error('Failed to update theme in DOM:', e)
+    }
+  }, [isDarkMode])
+
+  // Synchronize cart with localStorage whenever it changes (only for guest users)
+  useEffect(() => {
+    const isLoggedIn = !!localStorage.getItem('user')
+    if (isLoggedIn) return
+    try {
+      localStorage.setItem('cart', JSON.stringify(cart))
+    } catch { }
+  }, [cart])
+
+
 
   // Sync Local Cart to Backend once user logs in
   const syncCartWithBackend = useCallback(async (loggedInUser) => {

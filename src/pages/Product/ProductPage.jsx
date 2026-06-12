@@ -18,7 +18,7 @@ const ProductPage = () => {
   const [shop, setShop] = useState(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
-  const [selectedVariant, setSelectedVariant] = useState(null)
+  const [selectedVariant, setSelectedVariant] = useState(0)
   const [variantError, setVariantError] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [isBuyingNow, setIsBuyingNow] = useState(false)
@@ -178,18 +178,18 @@ const ProductPage = () => {
   // Dynamic variants
   const availableVariants = product && Array.isArray(product.variants) && product.variants.length > 0
     ? product.variants.map(v => {
-        const discountVal = v.discountPrice && Number(v.discountPrice) < Number(v.price)
-          ? Math.round(((Number(v.price) - Number(v.discountPrice)) / Number(v.price)) * 100)
-          : 0;
-        return {
-          id: v.variantId,
-          label: v.name || v.unit || product.unit || 'Standard Option',
-          price: Number(v.discountPrice || v.price || product.price || 0),
-          originalPrice: Number(v.price || product.price || 0),
-          discount: discountVal,
-          isAvailable: v.isAvailable
-        }
-      }).filter(v => !(v.isAvailable === false || v.isAvailable === 'false' || v.isAvailable === 0 || v.isAvailable === '0'))
+      const discountVal = v.discountPrice && Number(v.discountPrice) < Number(v.price)
+        ? Math.round(((Number(v.price) - Number(v.discountPrice)) / Number(v.price)) * 100)
+        : 0;
+      return {
+        id: v.variantId,
+        label: v.name || v.unit || product.unit || 'Standard Option',
+        price: Number(v.discountPrice || v.price || product.price || 0),
+        originalPrice: Number(v.price || product.price || 0),
+        discount: discountVal,
+        isAvailable: v.isAvailable
+      }
+    }).filter(v => !(v.isAvailable === false || v.isAvailable === 'false' || v.isAvailable === 0 || v.isAvailable === '0'))
     : []
 
   const hasAvailableVariants = availableVariants.length > 0
@@ -198,15 +198,15 @@ const ProductPage = () => {
     ? hasAvailableVariants
       ? availableVariants
       : [
-          {
-            id: product.id,
-            label: product.unit || 'piece',
-            price: Number(product.price || 0),
-            originalPrice: Number(product.originalPrice || product.price || 0),
-            discount: product.discount || 0,
-            isAvailable: true
-          }
-        ]
+        {
+          id: product.id,
+          label: product.unit || 'piece',
+          price: Number(product.price || 0),
+          originalPrice: Number(product.originalPrice || product.price || 0),
+          discount: product.discount || 0,
+          isAvailable: true
+        }
+      ]
     : []
 
   // Read URL query parameter for active variant selected
@@ -362,16 +362,16 @@ const ProductPage = () => {
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-gray-900 dark:text-white mt-4 mb-1.5 leading-tight">
                   {product.name}
                 </h1>
-                <div className="flex items-center gap-2">
+                {/* <div className="flex items-center gap-2">
                   <div className="flex items-center">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star key={star} className={`w-4 h-4 ${star <= Math.floor(product.rating) ? 'text-[#FFB800] fill-[#FFB800]' : 'text-gray-200 fill-gray-200'}`} />
                     ))}
                   </div>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white ml-2">{product.rating}</span>
-                  <span className="text-gray-300 dark:text-gray-700">|</span>
+                  <span className="text-[#E2E8F0] dark:text-gray-750 font-normal">|</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{product.reviews} reviews</span>
-                </div>
+                </div> */}
               </div>
 
               <div className="mb-4">
@@ -391,9 +391,6 @@ const ProductPage = () => {
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">Inclusive of all taxes</p>
-                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {product.description || `Experience the freshest and highest quality ${product.name.toLowerCase()} sourced directly from ${currentShop.shopName || currentShop.name}. Perfect for your daily needs and guaranteed to satisfy.`}
-                </p>
               </div>
 
               {/* <div className="w-full h-px bg-gray-100 dark:bg-gray-800 my-4"></div> */}
@@ -576,69 +573,58 @@ const ProductPage = () => {
                 </div>
               </div>
 
-              {/* Dynamic Accordions / Collapsible Sections */}
-              <div className="space-y-3 mt-4">
-
-                {/* 2. Specifications Accordion */}
-                {(product.sku || product.weight || product.dimensions || product.category) && (
-                  <div className="border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
-                    <button
-                      onClick={() => setIsSpecsOpen(!isSpecsOpen)}
-                      className="w-full px-6 py-4 flex items-center justify-between text-left font-bold text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                    >
-                      <span className="flex items-center gap-2 text-sm uppercase tracking-wider">
-                        <Settings className="w-4 h-4 text-primary" />
-                        <span>Technical Specifications</span>
-                      </span>
-                      {isSpecsOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {isSpecsOpen && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        >
-                          <div className="px-6 pb-4 pt-2 text-sm border-t border-gray-50 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
-                            {product.sku && (
-                              <div className="py-3 flex justify-between items-center text-sm">
-                                <span className="text-gray-500 dark:text-gray-400 font-medium">SKU Code</span>
-                                <span className="font-semibold text-gray-800 dark:text-gray-200">{product.sku}</span>
-                              </div>
-                            )}
-                            {product.weight && (
-                              <div className="py-3 flex justify-between items-center text-sm">
-                                <span className="text-gray-500 dark:text-gray-400 font-medium">Weight</span>
-                                <span className="font-semibold text-gray-800 dark:text-gray-200">{product.weight} kg</span>
-                              </div>
-                            )}
-                            {product.dimensions && (
-                              <div className="py-3 flex justify-between items-center text-sm">
-                                <span className="text-gray-500 dark:text-gray-400 font-medium">Dimensions</span>
-                                <span className="font-semibold text-gray-800 dark:text-gray-200">{product.dimensions}</span>
-                              </div>
-                            )}
-                            {product.category && (
-                              <div className="py-3 flex justify-between items-center text-sm">
-                                <span className="text-gray-500 dark:text-gray-400 font-medium">Category</span>
-                                <span className="font-semibold text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 px-3 py-1 rounded-full text-xs">
-                                  {product.category} {product.subCategory && ` → ${product.subCategory}`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-
-              </div>
-
             </div>
           </div>
+
+          {/* Product Description & Specifications Grid (2-column on desktop) */}
+          <div className="mt-12 pt-10 border-t border-gray-105 dark:border-gray-800 grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
+
+            {/* Left Column: Product Description */}
+            <div className={!(product.sku || product.weight || product.dimensions) ? "lg:col-span-2" : ""}>
+              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#6C4CF1]" />
+                Product Description
+              </h3>
+              <div
+                className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed prose prose-sm prose-purple dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: product.description || `Experience the freshest and highest quality ${product.name.toLowerCase()} sourced directly from ${currentShop.shopName || currentShop.name}. Perfect for your daily needs and guaranteed to satisfy.` }}
+              />
+            </div>
+
+            {/* Right Column: Product Specifications */}
+            {(product.sku || product.weight || product.dimensions) ? (
+              <div>
+                <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-[#6C4CF1]" />
+                  Product Specifications
+                </h3>
+                <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden w-full">
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800/50">
+                    {product.sku && (
+                      <div className="grid grid-cols-3 py-3.5 px-6 text-sm">
+                        <span className="text-gray-500 dark:text-gray-400 font-medium col-span-1">SKU Code</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 col-span-2">{product.sku}</span>
+                      </div>
+                    )}
+                    {product.weight && (
+                      <div className="grid grid-cols-3 py-3.5 px-6 text-sm">
+                        <span className="text-gray-500 dark:text-gray-400 font-medium col-span-1">Weight</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 col-span-2">{product.weight} kg</span>
+                      </div>
+                    )}
+                    {product.dimensions && (
+                      <div className="grid grid-cols-3 py-3.5 px-6 text-sm">
+                        <span className="text-gray-500 dark:text-gray-400 font-medium col-span-1">Dimensions</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 col-span-2">{product.dimensions}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+          </div>
+
         </div>
 
         {/* More from this Shop */}

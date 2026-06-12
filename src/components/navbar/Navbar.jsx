@@ -41,6 +41,8 @@ const Navbar = () => {
   const [manualLocation, setManualLocation] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [locationSuggestions, setLocationSuggestions] = useState([])
+  const [searchingLocation, setSearchingLocation] = useState(false)
   const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation } = useApp()
   const navigate = useNavigate()
   const isVendor = localStorage.getItem('role') === 'vendor' || user?.role === 'vendor'
@@ -249,55 +251,98 @@ const Navbar = () => {
     }
   }, [])
 
+  // Fetch location suggestions debounced when typing manualLocation
+  useEffect(() => {
+    if (!manualLocation.trim() || manualLocation.trim().length < 3) {
+      setLocationSuggestions([])
+      return
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      setSearchingLocation(true)
+      try {
+        const query = encodeURIComponent(manualLocation.trim())
+        const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
+
+        if (apiKey) {
+          const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}&components=country:IN`)
+          const data = await res.json()
+          if (data && data.status === "OK" && data.results) {
+            const formatted = data.results.map(result => ({
+              place_id: result.place_id,
+              lat: result.geometry.location.lat,
+              lon: result.geometry.location.lng,
+              display_name: result.formatted_address
+            }))
+            setLocationSuggestions(formatted)
+            return
+          }
+        }
+
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&limit=5&countrycodes=in`)
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          setLocationSuggestions(data)
+        }
+      } catch (err) {
+        console.error('Error fetching location suggestions:', err)
+      } finally {
+        setSearchingLocation(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(delayDebounce)
+  }, [manualLocation])
+
+  const handleSuggestionSelect = (item) => {
+    const lat = parseFloat(item.lat || item.latitude)
+    const lng = parseFloat(item.lon || item.longitude)
+    updateCoordinates(lat, lng)
+
+    const displayName = item.display_name
+    const parts = displayName.split(', ')
+    const primary = parts[0]
+    const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
+    updateLocation(primary, secondary)
+    
+    setLocationModalOpen(false)
+    setManualLocation('')
+    setLocationSuggestions([])
+  }
+
   const handleManualLocationSubmit = async (e) => {
     e.preventDefault()
     if (manualLocation.trim()) {
+      if (locationSuggestions.length > 0) {
+        handleSuggestionSelect(locationSuggestions[0])
+        return
+      }
+
       setApplying(true)
       try {
         const query = encodeURIComponent(manualLocation.trim())
         const apiKey = import.meta.env.VITE_API_BASE_URL_MAP || ''
 
-        let data = null
-        try {
-          const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}`)
-          data = await res.json()
-        } catch (err) {
-          console.warn("Google Maps geocode API fetch error, falling back to OSM Nominatim:", err)
+        if (apiKey) {
+          const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}&components=country:IN`)
+          const data = await res.json()
+          if (data && data.status === "OK" && data.results && data.results.length > 0) {
+            const result = data.results[0]
+            handleSuggestionSelect({
+              lat: result.geometry.location.lat,
+              lon: result.geometry.location.lng,
+              display_name: result.formatted_address
+            })
+            return
+          }
         }
 
-        if (data && data.status === "OK" && data.results && data.results.length > 0) {
-          const result = data.results[0]
-          const { lat, lng } = result.geometry.location
-          updateCoordinates(lat, lng)
-
-          const display_name = result.formatted_address
-          const parts = display_name.split(', ')
-          const primary = parts[0]
-          const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
-          updateLocation(primary, secondary)
-          setLocationModalOpen(false)
-          setManualLocation('')
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&addressdetails=1&limit=1&countrycodes=in`)
+        const data = await res.json()
+        if (Array.isArray(data) && data.length > 0) {
+          handleSuggestionSelect(data[0])
         } else {
-          // Fallback to OSM Nominatim
-          console.log("Falling back to OpenStreetMap Nominatim for address geocoding...")
-          const osmRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`)
-          const osmData = await osmRes.json()
-          if (osmData && osmData.length > 0) {
-            const result = osmData[0]
-            const lat = parseFloat(result.lat)
-            const lng = parseFloat(result.lon)
-            updateCoordinates(lat, lng)
-
-            const display_name = result.display_name
-            const parts = display_name.split(', ')
-            const primary = parts[0]
-            const secondary = parts.length > 1 ? parts.slice(1).join(', ') : 'Custom Location'
-            updateLocation(primary, secondary)
-            setLocationModalOpen(false)
-            setManualLocation('')
-          } else {
-            alert('Location not found. Please try another city or area.')
-          }
+          alert('Location not found. Please try another city or area.')
         }
       } catch (error) {
         console.error('Error finding manual location:', error)
@@ -400,7 +445,7 @@ const Navbar = () => {
                       : (item.shopName || item.name || 'Store')
 
                     const imagePath = isProduct
-                      ? (item.primaryImage || item.Product?.primaryImage || item.image)
+                      ? (item.primaryImage || item.Product?.primaryImage || item.image || (item.variants && item.variants.length > 0 && item.variants[0].image))
                       : (item.logo || item.banner || item.image)
 
                     const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
@@ -431,7 +476,6 @@ const Navbar = () => {
                             src={imageUrl}
                             alt={name}
                             className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
                             onError={(e) => {
                               e.target.onerror = null;
                               e.target.src = isProduct ? dummyProduct : dummyBanner;
@@ -469,13 +513,19 @@ const Navbar = () => {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setLocationModalOpen(!locationModalOpen)}
-        className="flex items-center justify-between gap-1.5 cursor-pointer px-3 sm:px-2 py-2 md:py-1 group bg-gray-100 md:bg-transparent dark:bg-white/5 md:dark:bg-transparent rounded-xl md:rounded-none border md:border-none border-gray-200 dark:border-white/10"
+        className="flex items-center gap-1 cursor-pointer px-2 py-1 group bg-transparent text-left"
       >
-        <div className="flex flex-col max-w-[180px] md:max-w-[120px] lg:max-w-[140px]">
-          <span className="text-[13px] sm:text-[15px] font-extrabold text-gray-900 dark:text-white leading-tight truncate group-hover:text-primary transition-colors">{primaryLocation}</span>
-          <span className="text-[10px] sm:text-[12px] text-gray-500 font-medium truncate">{secondaryLocation}</span>
+        <div className="flex flex-col max-w-[220px] md:max-w-[150px] lg:max-w-[180px]">
+          <span className="text-[13px] sm:text-[14px] font-black text-gray-900 dark:text-white leading-tight tracking-tight uppercase truncate">
+            {primaryLocation}
+          </span>
+          <div className="flex items-center gap-1.5 min-w-0 mt-0.5">
+            <span className="text-[10px] sm:text-[12px] text-gray-500 dark:text-gray-400 font-bold truncate">
+              {secondaryLocation}
+            </span>
+            <ChevronDown className={`w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0 transition-transform duration-300 ${locationModalOpen ? 'rotate-180' : ''}`} />
+          </div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-gray-700 dark:text-gray-300 transition-transform duration-300 ${locationModalOpen ? 'rotate-180' : ''}`} />
       </motion.div>
 
       {/* Location Dropdown */}
@@ -485,7 +535,11 @@ const Navbar = () => {
             {/* Invisible overlay to close dropdown when clicking outside */}
             <div
               className="fixed inset-0 z-40"
-              onClick={() => setLocationModalOpen(false)}
+              onClick={() => {
+                setLocationModalOpen(false)
+                setLocationSuggestions([])
+                setManualLocation('')
+              }}
             />
 
             <motion.div
@@ -493,46 +547,99 @@ const Navbar = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-x-4 top-20 sm:absolute sm:inset-auto sm:top-full sm:left-0 sm:mt-3 md:-left-14 sm:w-[360px] md:w-[300px] bg-white dark:bg-gray-900 rounded-2xl p-4 sm:p-5 z-50 shadow-2xl border border-gray-100 dark:border-white/10"
+              className="fixed inset-x-4 top-24 sm:absolute sm:inset-auto sm:top-full sm:left-0 sm:mt-3 md:-left-6 sm:w-[480px] md:w-[440px] bg-white dark:bg-gray-900 rounded-[28px] p-6 z-50 shadow-2xl border border-gray-100 dark:border-white/5"
             >
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Choose your location</h3>
-
-              <button
-                onClick={fetchLocation}
-                disabled={detecting}
-                className="w-full flex items-center justify-center gap-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 p-3 rounded-xl font-semibold mb-4 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors disabled:opacity-70 text-sm"
-              >
-                <MapPin className="w-4 h-4" />
-                {detecting ? 'Detecting location...' : 'Detect my current location'}
-              </button>
-
-              <div className="relative flex items-center py-2 mb-4">
-                <div className="flex-grow border-t border-gray-200 dark:border-white/10"></div>
-                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium uppercase">OR</span>
-                <div className="flex-grow border-t border-gray-200 dark:border-white/10"></div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-base font-black text-gray-950 dark:text-white uppercase tracking-tight">Change Location</h3>
+                <button
+                  onClick={() => {
+                    setLocationModalOpen(false)
+                    setLocationSuggestions([])
+                    setManualLocation('')
+                  }}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 hover:text-gray-650 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              <form onSubmit={handleManualLocationSubmit} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter your city or area"
-                  value={manualLocation}
-                  onChange={(e) => setManualLocation(e.target.value)}
-                  className="flex-1 w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-purple-500 dark:text-white text-sm"
-                  required
-                />
+              {/* Controls Row (Detect Location | OR | Manual Search) */}
+              <div className="flex items-center gap-3">
+                {/* Detect Location Button */}
                 <button
-                  type="submit"
-                  disabled={applying}
-                  className="bg-purple-600 text-white px-5 rounded-xl font-semibold hover:bg-purple-700 transition-colors text-sm disabled:opacity-70 flex items-center justify-center min-w-[75px]"
+                  onClick={fetchLocation}
+                  disabled={detecting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-3 rounded-2xl font-bold text-xs shrink-0 flex items-center gap-1.5 transition-all disabled:opacity-70 active:scale-[0.97] border-none cursor-pointer shadow-sm"
                 >
-                  {applying ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    'Apply'
-                  )}
+                  <MapPin className="w-3.5 h-3.5" />
+                  {detecting ? 'Detecting...' : 'Detect my location'}
                 </button>
-              </form>
+
+                {/* OR Divider Badge */}
+                <div className="w-8 h-8 rounded-full border border-gray-200 dark:border-white/5 flex items-center justify-center shrink-0 bg-gray-50/50 dark:bg-white/5">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">OR</span>
+                </div>
+
+                {/* Manual Search Form */}
+                <form onSubmit={handleManualLocationSubmit} className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    placeholder="Search for area, street..."
+                    value={manualLocation}
+                    onChange={(e) => setManualLocation(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-2xl px-4 py-3 outline-none focus:border-purple-500 dark:text-white text-xs transition-all focus:ring-2 focus:ring-purple-500/10"
+                    required
+                  />
+                </form>
+              </div>
+
+              {/* Suggestions / Results */}
+              <div className="mt-4 max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-white/5">
+                {searchingLocation && (
+                  <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
+                    <div className="w-4 h-4 border-2 border-purple-655 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-semibold">Searching locations...</span>
+                  </div>
+                )}
+                
+                {!searchingLocation && locationSuggestions.length > 0 && (
+                  <div className="py-2 space-y-1">
+                    {locationSuggestions.map((item, index) => {
+                      const parts = item.display_name.split(', ')
+                      const title = parts[0]
+                      const subtitle = parts.slice(1).join(', ')
+
+                      return (
+                        <div
+                          key={item.place_id || index}
+                          onClick={() => handleSuggestionSelect(item)}
+                          className="flex items-start gap-3.5 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-2xl transition-colors text-left"
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center shrink-0 text-gray-450 dark:text-gray-400 mt-0.5">
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black text-gray-950 dark:text-white truncate leading-tight">
+                              {title}
+                            </p>
+                            <p className="text-[10.5px] text-gray-500 dark:text-gray-400 font-semibold truncate mt-1">
+                              {subtitle}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {applying && (
+                  <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
+                    <div className="w-4 h-4 border-2 border-purple-650 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-semibold">Applying location...</span>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </>
         )}
@@ -829,14 +936,28 @@ const Navbar = () => {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile') }}
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile/personal') }}
                                   className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
                                 >
                                   <User className="w-4 h-4 text-gray-500" />
                                   My Profile
                                 </button>
                                 <button
-                                  onClick={() => { setLoginDropdownOpen(false); navigate('/settings') }}
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile/orders') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <Package className="w-4 h-4 text-gray-500" />
+                                  My Orders
+                                </button>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile/addresses') }}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
+                                >
+                                  <MapPin className="w-4 h-4 text-gray-500" />
+                                  Addresses
+                                </button>
+                                <button
+                                  onClick={() => { setLoginDropdownOpen(false); navigate('/profile/settings') }}
                                   className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-2"
                                 >
                                   <Settings className="w-4 h-4 text-gray-500" />
