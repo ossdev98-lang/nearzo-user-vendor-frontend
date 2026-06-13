@@ -535,7 +535,7 @@ const VendorMasterProducts = () => {
       {/* Import to Catalog Modal */}
       <AnimatePresence>
         {importingProduct && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Modal backdrop with glassmorphism */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -664,7 +664,7 @@ const VendorMasterProducts = () => {
       {/* Product Details Modal dialog overlay */}
       <AnimatePresence>
         {selectedProductForDetails && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Modal backdrop with glassmorphism */}
             <motion.div
               initial={{ opacity: 0 }}

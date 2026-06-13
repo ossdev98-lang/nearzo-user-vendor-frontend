@@ -855,7 +855,7 @@ const VendorProducts = () => {
       {/* Product Edit/Add Modal dialog overlay */}
       <AnimatePresence>
         {isModalOpen && editingProduct && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Modal backdrop with glassmorphism */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -1010,7 +1010,7 @@ const VendorProducts = () => {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirmId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -1069,7 +1069,7 @@ const VendorProducts = () => {
       {/* Product Details Modal dialog overlay */}
       <AnimatePresence>
         {selectedProductForDetails && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Modal backdrop with glassmorphism */}
             <motion.div
               initial={{ opacity: 0 }}
