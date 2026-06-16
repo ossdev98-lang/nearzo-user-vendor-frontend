@@ -145,28 +145,57 @@ const CheckoutPage = () => {
     fetchAddresses()
   }, [])
 
-  const defaultAddress = activeAddressId 
+  const defaultAddress = activeAddressId
     ? addresses.find(a => String(a.id) === String(activeAddressId)) || addresses.find(a => a.isDefault) || addresses[0]
     : addresses.find(a => a.isDefault) || addresses[0]
+
+  // Distance and Acceptance Range Checks
+  const vendorInfo = cart.find(item => item.vendor)?.vendor || null
+  const acceptanceRange = Number(vendorInfo?.orderAcceptanceRange || 10)
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  const userLat = Number(defaultAddress?.latitude)
+  const userLng = Number(defaultAddress?.longitude)
+  const vendorLat = Number(vendorInfo?.latitude)
+  const vendorLng = Number(vendorInfo?.longitude)
+
+  const clientDistance = calculateDistance(userLat, userLng, vendorLat, vendorLng)
+  const distance = (cartDeliveryDetails?.distanceKm !== undefined && cartDeliveryDetails?.distanceKm !== null)
+    ? Number(cartDeliveryDetails.distanceKm)
+    : (clientDistance !== null ? Number(clientDistance.toFixed(1)) : null)
+  
+  const isOutsideRange = distance !== null && distance > acceptanceRange
 
   const handleSelectAddress = (addr) => {
     localStorage.setItem('selectedAddressId', String(addr.id))
     setActiveAddressId(String(addr.id))
-    
+
     // Update coordinates if available
     if (addr.latitude && addr.longitude) {
       updateCoordinates(Number(addr.latitude), Number(addr.longitude))
     }
-    
-    // Update location text in Navbar
+
+    // Do NOT update location text in Navbar for checkout page address change
     const addressParts = (addr.address || '').split(',').map(p => p.trim()).filter(Boolean)
     let primary = addressParts[0] || 'Custom Location'
     if (addressParts.length > 1 && (
-      /^\d+$/.test(primary) || 
-      primary.length <= 4 || 
-      primary.toLowerCase().startsWith('flat') || 
-      primary.toLowerCase().startsWith('house') || 
-      primary.toLowerCase().startsWith('shop') || 
+      /^\d+$/.test(primary) ||
+      primary.length <= 4 ||
+      primary.toLowerCase().startsWith('flat') ||
+      primary.toLowerCase().startsWith('house') ||
+      primary.toLowerCase().startsWith('shop') ||
       primary.toLowerCase().startsWith('plot') ||
       primary.toLowerCase().startsWith('ward') ||
       primary.toLowerCase().startsWith('no') ||
@@ -174,9 +203,7 @@ const CheckoutPage = () => {
     )) {
       primary = addressParts[1]
     }
-    const secondary = `${addr.address}, ${addr.city}`
-    updateLocation(primary, secondary)
-    
+
     setShowAddressSelector(false)
     toast.success(`Delivery address changed to ${primary}!`)
   }
@@ -190,6 +217,10 @@ const CheckoutPage = () => {
       toast.error('Please select or add a delivery address first!')
       return
     }
+    if (isOutsideRange) {
+      toast.error(`Delivery not possible! Selected address is outside the store's delivery range (${distance} km > ${acceptanceRange} km)`)
+      return
+    }
 
     setPlacingOrder(true)
     const toastId = toast.loading('Placing your order...')
@@ -199,14 +230,14 @@ const CheckoutPage = () => {
     formData.append('city', defaultAddress.city || '')
     formData.append('state', defaultAddress.state || '')
     formData.append('pincode', defaultAddress.pincode || '')
-    
+
     const lat = localStorage.getItem('user_latitude')
     const lng = localStorage.getItem('user_longitude')
     if (lat) formData.append('latitude', lat)
     if (lng) formData.append('longitude', lng)
-    
+
     formData.append('notes', orderNotes || '')
-    
+
     if (audioBlob) {
       formData.append('audioNote', audioBlob, 'voice_instruction.webm')
     }
@@ -235,7 +266,9 @@ const CheckoutPage = () => {
     }
   }
 
-  const deliveryFee = cartDeliveryDetails ? Number(cartDeliveryDetails.deliveryCharge) : 0
+  const deliveryFee = (cartDeliveryDetails && !isOutsideRange && !isNaN(Number(cartDeliveryDetails.deliveryCharge)))
+    ? Number(cartDeliveryDetails.deliveryCharge)
+    : 0
   const finalTotal = cartTotal + deliveryFee
 
   if (cart.length === 0 && !showSuccessModal) {
@@ -296,6 +329,16 @@ const CheckoutPage = () => {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
                       Phone: {user?.phone || '+91 9876543210'}
                     </p>
+                    {isOutsideRange && (
+                      <div className="mt-4 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200/40 dark:border-red-900/30 rounded-xl flex items-start gap-3 text-red-655 dark:text-red-450">
+                        <svg className="w-5 h-5 shrink-0 mt-0.5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div className="text-xs font-black uppercase tracking-wider text-left leading-normal">
+                          Delivery not possible! Store is {distance} km away, which exceeds the acceptance range of {acceptanceRange} km.
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-center py-4">
@@ -339,12 +382,12 @@ const CheckoutPage = () => {
                     {paymentMethod === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
                   </div>
                 </label> */}
-            </div>
+              </div>
             </div>
             {/* Delivery Instructions & Voice Note */}
             <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 space-y-4">
               <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 Delivery Instructions / Notes (Optional)
               </h2>
               <textarea
@@ -422,7 +465,7 @@ const CheckoutPage = () => {
 
           {/* Right Column: Order Summary (5 cols) */}
           <div className="lg:col-span-5">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 lg:sticky lg:top-28">
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-white/5">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-base font-bold text-gray-900 dark:text-white">Order Summary</h2>
                 <button onClick={() => { setIsCartOpen(true); navigate(-1) }} className="text-sm font-bold text-purple-600 hover:underline">Edit Cart</button>
@@ -446,7 +489,22 @@ const CheckoutPage = () => {
               </div>
 
               {/* Delivery Details Alert */}
-              {isMinOrderNotMet ? (
+              {isOutsideRange ? (
+                <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl text-xs space-y-1.5 text-red-700 dark:text-red-300 font-medium">
+                  <div className="flex justify-between items-center">
+                    <span>Store Distance:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{distance} km</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Max Delivery Range:</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{acceptanceRange} km</span>
+                  </div>
+                  <div className="flex justify-between items-center text-red-600 dark:text-red-450 font-bold border-t border-red-200/40 dark:border-red-800/40 pt-1.5 mt-0.5">
+                    <span>Delivery Status:</span>
+                    <span className="bg-red-100 dark:bg-red-950/50 px-2 py-0.5 rounded text-[10px] text-red-600 font-black">NOT DELIVERABLE ❌</span>
+                  </div>
+                </div>
+              ) : isMinOrderNotMet ? (
                 <div className="mb-5 p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/30 dark:border-emerald-900/30 rounded-xl">
                   <div className="flex flex-row justify-between items-center gap-2 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -460,7 +518,7 @@ const CheckoutPage = () => {
                         Yay! You are ₹{minOrderVal - cartTotal} away from FREE delivery
                       </span>
                     </div>
-                    <button 
+                    <button
                       onClick={() => navigate(-1)}
                       className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors border-none bg-transparent cursor-pointer uppercase tracking-wider shrink-0 font-sans"
                     >
@@ -469,7 +527,7 @@ const CheckoutPage = () => {
                   </div>
                   {/* Progress Bar */}
                   <div className="w-full bg-emerald-100 dark:bg-emerald-950/80 h-1.5 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="bg-emerald-600 dark:bg-emerald-500 h-full rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, (cartTotal / minOrderVal) * 100)}%` }}
                     />
@@ -514,14 +572,22 @@ const CheckoutPage = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Delivery Fee</span>
                   <span className="font-bold text-gray-900 dark:text-white">
-                    {deliveryFee === 0 ? <span className="text-green-600">FREE</span> : `₹${deliveryFee}`}
+                    {isOutsideRange ? (
+                      '₹0'
+                    ) : deliveryFee === 0 ? (
+                      <span className="text-green-600">FREE</span>
+                    ) : (
+                      `₹${deliveryFee}`
+                    )}
                   </span>
                 </div>
               </div>
 
               <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-800 pt-4 mb-5">
                 <span className="font-bold text-gray-900 dark:text-white text-base">To Pay</span>
-                <span className="text-2xl font-extrabold text-purple-600">₹{finalTotal}</span>
+                <span className="text-2xl font-extrabold text-purple-600">
+                  ₹{finalTotal}
+                </span>
               </div>
 
               <div className="flex items-center gap-2 justify-center text-xs text-gray-500 mb-5">
@@ -530,7 +596,7 @@ const CheckoutPage = () => {
 
               <button
                 onClick={handlePlaceOrder}
-                disabled={placingOrder}
+                disabled={placingOrder || isOutsideRange}
                 className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-base font-bold transition-all shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {placingOrder ? (
@@ -552,7 +618,7 @@ const CheckoutPage = () => {
       {showSuccessModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center px-4 animate-fadeIn">
           {/* Blur Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-md"
             onClick={() => {
               setShowSuccessModal(false)
@@ -562,7 +628,7 @@ const CheckoutPage = () => {
 
           {/* Modal Container */}
           <div className="bg-white dark:bg-gray-900 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative z-[151] border border-gray-100 dark:border-white/5 text-center flex flex-col items-center">
-            
+
             {/* Animated Check Circle */}
             <div className="w-20 h-20 bg-green-100 dark:bg-emerald-950/50 rounded-full flex items-center justify-center text-green-600 dark:text-emerald-400 mb-6 relative">
               <svg className="w-10 h-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
@@ -617,7 +683,7 @@ const CheckoutPage = () => {
         {showAddressSelector && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center px-4 animate-fadeIn">
             {/* Backdrop */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -626,7 +692,7 @@ const CheckoutPage = () => {
             />
 
             {/* Modal Card */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -639,7 +705,7 @@ const CheckoutPage = () => {
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Choose Delivery Address</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select where you want your order to be delivered</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowAddressSelector(false)}
                   className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 transition-colors border-none bg-transparent cursor-pointer"
                 >
@@ -654,7 +720,7 @@ const CheckoutPage = () => {
                 {addresses.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No delivery address found</p>
-                    <button 
+                    <button
                       onClick={() => {
                         setShowAddressSelector(false)
                         navigate('/profile/addresses')
@@ -671,20 +737,18 @@ const CheckoutPage = () => {
                       const label = addr.addressType === 'office' ? 'Work' : addr.addressType === 'other' ? (addr.otherAddress || 'Other') : addr.addressType || 'Home'
 
                       return (
-                        <div 
+                        <div
                           key={addr.id}
                           onClick={() => handleSelectAddress(addr)}
-                          className={`group p-4 rounded-2xl border transition-all duration-300 flex items-start gap-4 cursor-pointer relative overflow-hidden ${
-                            isSelected 
-                              ? 'border-purple-600 bg-purple-50/30 dark:bg-purple-900/10' 
-                              : 'border-gray-250 hover:border-purple-300 dark:border-white/5 dark:hover:border-purple-900/30 hover:bg-gray-50/50 dark:hover:bg-white/5'
-                          }`}
+                          className={`group p-4 rounded-2xl border transition-all duration-300 flex items-start gap-4 cursor-pointer relative overflow-hidden ${isSelected
+                            ? 'border-purple-600 bg-purple-50/30 dark:bg-purple-900/10'
+                            : 'border-gray-250 hover:border-purple-300 dark:border-white/5 dark:hover:border-purple-900/30 hover:bg-gray-50/50 dark:hover:bg-white/5'
+                            }`}
                         >
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
-                            isSelected 
-                              ? 'bg-purple-600 text-white' 
-                              : 'bg-gray-100 dark:bg-white/5 text-gray-500 group-hover:text-purple-600'
-                          }`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${isSelected
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 dark:bg-white/5 text-gray-500 group-hover:text-purple-600'
+                            }`}>
                             <MapPin className="w-5 h-5" />
                           </div>
 
@@ -704,9 +768,8 @@ const CheckoutPage = () => {
 
                           {/* Selected Radio Indicator */}
                           <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                              isSelected ? 'border-purple-600 bg-purple-650' : 'border-gray-350 dark:border-gray-600 group-hover:border-purple-400'
-                            }`}>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-purple-600 bg-purple-650' : 'border-gray-350 dark:border-gray-600 group-hover:border-purple-400'
+                              }`}>
                               {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
                             </div>
                           </div>
@@ -721,7 +784,7 @@ const CheckoutPage = () => {
               {addresses.length > 0 && (
                 <div className="px-6 py-4 bg-gray-50 dark:bg-white/5 border-t border-gray-100 dark:border-white/5 flex items-center justify-between shrink-0">
                   <span className="text-xs text-gray-500">Need to deliver somewhere else?</span>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowAddressSelector(false)
                       navigate('/profile/addresses')

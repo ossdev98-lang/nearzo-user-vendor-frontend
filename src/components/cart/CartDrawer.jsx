@@ -111,9 +111,9 @@ const CartDrawer = () => {
                           alt={item.name}
                           className="w-full h-full object-cover"
                           crossOrigin="anonymous"
-                          onError={(e) => { 
+                          onError={(e) => {
                             e.target.onerror = null;
-                            e.target.src = dummyProduct; 
+                            e.target.src = dummyProduct;
                           }}
                         />
                       </div>
@@ -121,14 +121,14 @@ const CartDrawer = () => {
                       {/* Product Details */}
                       <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
                         <div className="flex justify-between items-start gap-2">
-                          <div>
-                            <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.name}</h4>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate" title={item.name}>{item.name}</h4>
                             <p className="text-xs text-gray-500 mt-0.5">{item.unit}</p>
                           </div>
                           <button
                             onClick={() => handleRemove(item.id)}
                             disabled={removingIds.includes(item.id)}
-                            className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                           >
                             {removingIds.includes(item.id) ? (
                               <div className="w-4 h-4 border-t-2 border-r-2 border-red-500 rounded-full animate-spin"></div>
@@ -187,7 +187,7 @@ const CartDrawer = () => {
                           Yay! You are ₹{minOrderVal - cartTotal} away from FREE delivery
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setIsCartOpen(false)}
                         className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors border-none bg-transparent cursor-pointer uppercase tracking-wider shrink-0 font-sans"
                       >
@@ -196,7 +196,7 @@ const CartDrawer = () => {
                     </div>
                     {/* Progress Bar */}
                     <div className="w-full bg-emerald-100 dark:bg-emerald-950/80 h-1.5 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="bg-emerald-600 dark:bg-emerald-500 h-full rounded-full transition-all duration-300"
                         style={{ width: `${Math.min(100, (cartTotal / minOrderVal) * 100)}%` }}
                       />
@@ -240,7 +240,7 @@ const CartDrawer = () => {
                       {formatCurrency(cartTotal)}
                     </span>
                   </div>
-                  
+
                   {cartDeliveryDetails && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-500 dark:text-gray-400 font-medium">Delivery Fee</span>

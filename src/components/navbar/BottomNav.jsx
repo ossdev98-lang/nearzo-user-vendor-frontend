@@ -27,7 +27,7 @@ const BottomNav = () => {
   const navItems = [
     { label: 'Home', icon: Home, path: '/' },
     { label: 'Search', icon: Search, path: '#search' },
-    { label: 'Cart', icon: ShoppingCart, path: '/cart', badge: cartCount },
+    ...(!isVendor ? [{ label: 'Cart', icon: ShoppingCart, path: '/cart', badge: cartCount }] : []),
     { 
       label: isVendor ? 'Dashboard' : 'Profile', 
       icon: isVendor ? Store : User, 

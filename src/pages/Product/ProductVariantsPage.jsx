@@ -10,6 +10,7 @@ const ProductVariantsPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToCart, cart } = useApp()
+  const isVendor = localStorage.getItem('role') === 'vendor'
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -136,10 +137,10 @@ const ProductVariantsPage = () => {
           </div>
         </div>
 
-        {/* Variants Section */}
+         {/* Variants Section */}
         <div className="mb-6">
           <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight">
-            Select an Option to Order
+            {isVendor ? 'Product Options' : 'Select an Option to Order'}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -177,32 +178,34 @@ const ProductVariantsPage = () => {
 
                     <div className="space-y-2 mt-auto">
                       {/* Add to Cart Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          addToCart({
-                            ...product,
-                            price: Number(variant.price || 0),
-                            unit: variant.label,
-                            quantity: 1
-                          })
-                        }}
-                        className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
-                          variantInCart
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white shadow-sm'
-                        }`}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>{variantInCart ? 'Added to Cart' : 'Add to Cart'}</span>
-                      </button>
+                      {!isVendor && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addToCart({
+                              ...product,
+                              price: Number(variant.price || 0),
+                              unit: variant.label,
+                              quantity: 1
+                            })
+                          }}
+                          className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                            variantInCart
+                              ? 'bg-green-600 hover:bg-green-700 text-white'
+                              : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white shadow-sm'
+                          }`}
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                          <span>{variantInCart ? 'Added to Cart' : 'Add to Cart'}</span>
+                        </button>
+                      )}
 
                       {/* View Details / Order Button */}
                       <button
                         onClick={() => navigate(`/product/${product.id}?variantId=${variant.id || idx}`)}
                         className="w-full py-2.5 rounded-xl font-bold text-sm border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
-                        View Details & Order
+                        {isVendor ? 'View Details' : 'View Details & Order'}
                       </button>
                     </div>
                   </div>

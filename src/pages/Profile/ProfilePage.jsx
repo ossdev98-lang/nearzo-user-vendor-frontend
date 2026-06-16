@@ -133,6 +133,7 @@ const ProfilePage = () => {
   })
   const [addresses, setAddresses] = useState([])
   const [editingAddressId, setEditingAddressId] = useState(null)
+  const [isDefaultAddress, setIsDefaultAddress] = useState(false)
   const [showFormFields, setShowFormFields] = useState(false)
   const [isMapOpen, setIsMapOpen] = useState(false)
   const mapRef = useRef(null)
@@ -426,7 +427,8 @@ const ProfilePage = () => {
         pincode: addressDetails.pincode || '',
         latitude: localStorage.getItem('user_latitude') || '',
         longitude: localStorage.getItem('user_longitude') || '',
-        addressType: type
+        addressType: type,
+        isDefault: isDefaultAddress
       }
 
       if (type === 'other') {
@@ -881,7 +883,9 @@ const ProfilePage = () => {
                           setEditingAddressId(null)
                           setNewAddress('')
                           setAddressLabel('Home')
+                          setOtherAddressName('')
                           setAddressDetails({ city: '', state: '', pincode: '', latitude: null, longitude: null })
+                          setIsDefaultAddress(false)
                           setShowFormFields(false)
                           setShowAddressModal(true)
                         }}
@@ -921,7 +925,8 @@ const ProfilePage = () => {
                                     onClick={() => {
                                       setEditingAddressId(addr.id)
                                       setNewAddress(addr.address || '')
-                                      setAddressLabel(addr.addressType === 'office' ? 'Work' : 'Home')
+                                      setAddressLabel(addr.addressType === 'office' ? 'Work' : addr.addressType === 'other' ? 'Other' : 'Home')
+                                      setOtherAddressName(addr.addressType === 'other' ? (addr.otherAddress || '') : '')
                                       setAddressDetails({
                                         city: addr.city || '',
                                         state: addr.state || '',
@@ -929,6 +934,7 @@ const ProfilePage = () => {
                                         latitude: addr.latitude || null,
                                         longitude: addr.longitude || null
                                       })
+                                      setIsDefaultAddress(addr.isDefault || false)
                                       setShowFormFields(true)
                                       setShowAddressModal(true)
                                     }}
@@ -1388,6 +1394,19 @@ const ProfilePage = () => {
                           />
                         </motion.div>
                       )}
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 mt-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-sm">Set as Default Address</h4>
+                        <p className="text-xs text-gray-500">Make this your primary delivery address</p>
+                      </div>
+                      <div
+                        onClick={() => setIsDefaultAddress(!isDefaultAddress)}
+                        className={`w-12 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors duration-300 ${isDefaultAddress ? 'bg-[#6C4CF1]' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-transform duration-300 ${isDefaultAddress ? 'right-0.5' : 'left-0.5'}`}></div>
+                      </div>
                     </div>
 
                     <button

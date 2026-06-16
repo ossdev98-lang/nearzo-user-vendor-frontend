@@ -155,5 +155,13 @@ export const vendorService = {
   readAllNotifications: async () => {
     const response = await API.put('/vendor/notifications/read-all')
     return response.data
+  },
+  uploadNonMasterProduct: async (formData) => {
+    const response = await API.post('/vendor/non-master-products', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
   }
 }

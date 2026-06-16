@@ -20,7 +20,8 @@ import {
   LogOut,
   Store,
   PlusCircle,
-  Sparkles
+  Sparkles,
+  Upload
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useNavigate, Link } from 'react-router-dom'
@@ -56,6 +57,59 @@ const VendorProducts = () => {
   const [showAddDropdown, setShowAddDropdown] = useState(false)
   const [editableVariants, setEditableVariants] = useState([])
   const [selectedProductForDetails, setSelectedProductForDetails] = useState(null)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [frontImageFile, setFrontImageFile] = useState(null)
+  const [backImageFile, setBackImageFile] = useState(null)
+  const [frontImagePreview, setFrontImagePreview] = useState(null)
+  const [backImagePreview, setBackImagePreview] = useState(null)
+  const [uploadingNonMaster, setUploadingNonMaster] = useState(false)
+
+  const handleFrontImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setFrontImageFile(file)
+      setFrontImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleBackImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setBackImageFile(file)
+      setBackImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleUploadNonMasterSubmit = async (e) => {
+    e.preventDefault()
+    if (!frontImageFile || !backImageFile) {
+      toast.error('Please upload both Front and Back images!')
+      return
+    }
+
+    setUploadingNonMaster(true)
+    const toastId = toast.loading('Uploading non-master product...')
+    const formData = new FormData()
+    formData.append('frontImage', frontImageFile)
+    formData.append('backImage', backImageFile)
+
+    try {
+      const data = await vendorService.uploadNonMasterProduct(formData)
+      toast.success(data.message || 'Non-master product uploaded successfully! 🎉', { id: toastId })
+      setIsUploadModalOpen(false)
+      setFrontImageFile(null)
+      setBackImageFile(null)
+      setFrontImagePreview(null)
+      setBackImagePreview(null)
+      fetchProducts()
+    } catch (err) {
+      console.error(err)
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to upload product.'
+      toast.error(errMsg, { id: toastId })
+    } finally {
+      setUploadingNonMaster(false)
+    }
+  }
 
   const stripHtml = (html) => {
     if (!html) return ''
@@ -626,12 +680,20 @@ const VendorProducts = () => {
               />
             </div>
 
-            <button
-              onClick={() => navigate('/vendor/master-products')}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer shrink-0"
-            >
-              <Plus className="w-4.5 h-4.5" /> Add New Product
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto shrink-0">
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer"
+              >
+                <Upload className="w-4 h-4" /> Upload Product Name
+              </button>
+              <button
+                onClick={() => navigate('/vendor/master-products')}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:px-6 sm:py-4 bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-md hover:scale-[1.02] border-none cursor-pointer"
+              >
+                <Plus className="w-4.5 h-4.5" /> Add New Product
+              </button>
+            </div>
           </div>
 
           {/* Dynamic Category Tabs */}
@@ -1210,6 +1272,162 @@ const VendorProducts = () => {
         )}
       </AnimatePresence>
 
+      {/* Upload Non-Master Product Modal */}
+      <AnimatePresence>
+        {isUploadModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!uploadingNonMaster) {
+                  setIsUploadModalOpen(false)
+                  setFrontImageFile(null)
+                  setBackImageFile(null)
+                  setFrontImagePreview(null)
+                  setBackImagePreview(null)
+                }
+              }}
+              className="absolute inset-0 bg-black/45 backdrop-blur-md"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-gray-900 border border-purple-100/10 dark:border-gray-800 w-[92%] sm:w-full sm:max-w-md rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-2xl p-6 relative z-10 space-y-5 text-gray-800 dark:text-gray-100"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-[#6C4CF1]">
+                    <Upload className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-black text-sm tracking-tight text-gray-955 dark:text-white uppercase">
+                      Upload Product Name
+                    </h3>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Non-Master Product Images</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!uploadingNonMaster) {
+                      setIsUploadModalOpen(false)
+                      setFrontImageFile(null)
+                      setBackImageFile(null)
+                      setFrontImagePreview(null)
+                      setBackImagePreview(null)
+                    }
+                  }}
+                  className="w-8 h-8 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-400 hover:text-gray-650" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleUploadNonMasterSubmit} className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Front Image Zone */}
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-widest">Front Image</label>
+                    <div className="aspect-square relative rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 hover:border-[#6C4CF1] dark:hover:border-[#6C4CF1] transition-all flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-850/20 cursor-pointer overflow-hidden group">
+                      {frontImagePreview ? (
+                        <>
+                          <img src={frontImagePreview} alt="Front Preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setFrontImageFile(null)
+                              setFrontImagePreview(null)
+                            }}
+                            className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-650 text-white rounded-full border-none cursor-pointer flex items-center justify-center"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFrontImageChange}
+                            className="hidden"
+                          />
+                          <PlusCircle className="w-7 h-7 text-gray-400 group-hover:text-[#6C4CF1] transition-colors mb-2" />
+                          <span className="text-[10px] font-extrabold text-gray-400 group-hover:text-[#6C4CF1] transition-colors uppercase text-center leading-tight">Front Photo</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Back Image Zone */}
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-widest">Back Image</label>
+                    <div className="aspect-square relative rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 hover:border-[#6C4CF1] dark:hover:border-[#6C4CF1] transition-all flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-850/20 cursor-pointer overflow-hidden group">
+                      {backImagePreview ? (
+                        <>
+                          <img src={backImagePreview} alt="Back Preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setBackImageFile(null)
+                              setBackImagePreview(null)
+                            }}
+                            className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-650 text-white rounded-full border-none cursor-pointer flex items-center justify-center"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleBackImageChange}
+                            className="hidden"
+                          />
+                          <PlusCircle className="w-7 h-7 text-gray-400 group-hover:text-[#6C4CF1] transition-colors mb-2" />
+                          <span className="text-[10px] font-extrabold text-gray-400 group-hover:text-[#6C4CF1] transition-colors uppercase text-center leading-tight">Back Photo</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={uploadingNonMaster}
+                    onClick={() => {
+                      setIsUploadModalOpen(false)
+                      setFrontImageFile(null)
+                      setBackImageFile(null)
+                      setFrontImagePreview(null)
+                      setBackImagePreview(null)
+                    }}
+                    className="w-1/2 py-3.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-800/80 text-gray-600 dark:text-gray-300 rounded-[20px] text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadingNonMaster}
+                    className="w-1/2 py-3.5 bg-gradient-to-r from-[#6C4CF1] to-[#5B3BE8] hover:scale-[1.01] text-white rounded-[20px] text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-purple-550/20 border-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingNonMaster ? 'Uploading...' : 'Submit'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -22,6 +22,8 @@ import dummyProduct from '../../assets/images/dummyProduct.jpg'
 import dummyBanner from '../../assets/images/dummy-banner.jpg'
 import { authService } from '../../services/authService'
 import { searchService } from '../../services/searchService'
+import { userService } from '../../services/userService'
+import toast from 'react-hot-toast'
 import API from '../../services/api'
 
 const getAvatarUrl = (avatar) => {
@@ -43,6 +45,28 @@ const Navbar = () => {
   const [applying, setApplying] = useState(false)
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [searchingLocation, setSearchingLocation] = useState(false)
+  const [savedAddresses, setSavedAddresses] = useState([])
+  const [loadingAddresses, setLoadingAddresses] = useState(false)
+  const [showSavedLocationsList, setShowSavedLocationsList] = useState(false)
+
+  const fetchSavedAddresses = async () => {
+    const isLoggedIn = !!localStorage.getItem('token') || !!localStorage.getItem('user')
+    if (!isLoggedIn) return
+    setLoadingAddresses(true)
+    try {
+      const data = await userService.getAddresses()
+      if (data && data.addresses) {
+        setSavedAddresses(data.addresses)
+      } else if (Array.isArray(data)) {
+        setSavedAddresses(data)
+      }
+    } catch (err) {
+      console.error('Error fetching addresses in navbar:', err)
+    } finally {
+      setLoadingAddresses(false)
+    }
+  }
+
   const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation } = useApp()
   const navigate = useNavigate()
   const isVendor = localStorage.getItem('role') === 'vendor' || user?.role === 'vendor'
@@ -539,6 +563,7 @@ const Navbar = () => {
                 setLocationModalOpen(false)
                 setLocationSuggestions([])
                 setManualLocation('')
+                setShowSavedLocationsList(false)
               }}
             />
 
@@ -552,94 +577,188 @@ const Navbar = () => {
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-base font-black text-gray-950 dark:text-white uppercase tracking-tight">Change Location</h3>
-                <button
-                  onClick={() => {
-                    setLocationModalOpen(false)
-                    setLocationSuggestions([])
-                    setManualLocation('')
-                  }}
-                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 hover:text-gray-650 transition-colors border-none bg-transparent cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Controls Row (Detect Location | OR | Manual Search) */}
-              <div className="flex items-center gap-3">
-                {/* Detect Location Button */}
-                <button
-                  onClick={fetchLocation}
-                  disabled={detecting}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-3 rounded-2xl font-bold text-xs shrink-0 flex items-center gap-1.5 transition-all disabled:opacity-70 active:scale-[0.97] border-none cursor-pointer shadow-sm"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  {detecting ? 'Detecting...' : 'Detect my location'}
-                </button>
-
-                {/* OR Divider Badge */}
-                <div className="w-8 h-8 rounded-full border border-gray-200 dark:border-white/5 flex items-center justify-center shrink-0 bg-gray-50/50 dark:bg-white/5">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">OR</span>
+                <div className="flex items-center gap-2">
+                  {(!!localStorage.getItem('token') || !!localStorage.getItem('user')) && (
+                    <button
+                      onClick={() => {
+                        const nextVal = !showSavedLocationsList
+                        setShowSavedLocationsList(nextVal)
+                        if (nextVal) {
+                          fetchSavedAddresses()
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-900/40 text-purple-700 dark:text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border-none"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      {showSavedLocationsList ? 'Search Map' : 'Saved Locations'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setLocationModalOpen(false)
+                      setLocationSuggestions([])
+                      setManualLocation('')
+                      setShowSavedLocationsList(false)
+                    }}
+                    className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 hover:text-gray-650 transition-colors border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-
-                {/* Manual Search Form */}
-                <form onSubmit={handleManualLocationSubmit} className="flex-1 min-w-0">
-                  <input
-                    type="text"
-                    placeholder="Search for area, street..."
-                    value={manualLocation}
-                    onChange={(e) => setManualLocation(e.target.value)}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-2xl px-4 py-3 outline-none focus:border-purple-500 dark:text-white text-xs transition-all focus:ring-2 focus:ring-purple-500/10"
-                    required
-                  />
-                </form>
               </div>
 
-              {/* Suggestions / Results */}
-              <div className="mt-4 max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-white/5">
-                {searchingLocation && (
-                  <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
-                    <div className="w-4 h-4 border-2 border-purple-655 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs font-semibold">Searching locations...</span>
-                  </div>
-                )}
-                
-                {!searchingLocation && locationSuggestions.length > 0 && (
-                  <div className="py-2 space-y-1">
-                    {locationSuggestions.map((item, index) => {
-                      const parts = item.display_name.split(', ')
-                      const title = parts[0]
-                      const subtitle = parts.slice(1).join(', ')
-
-                      return (
-                        <div
-                          key={item.place_id || index}
-                          onClick={() => handleSuggestionSelect(item)}
-                          className="flex items-start gap-3.5 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-2xl transition-colors text-left"
-                        >
-                          <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center shrink-0 text-gray-450 dark:text-gray-400 mt-0.5">
-                            <MapPin className="w-4 h-4" />
+              {showSavedLocationsList ? (
+                /* Saved Locations List */
+                <div className="mt-2 max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-white/5 pr-1">
+                  {loadingAddresses ? (
+                    <div className="flex items-center gap-2 py-8 text-gray-500 justify-center">
+                      <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-semibold">Loading saved locations...</span>
+                    </div>
+                  ) : savedAddresses.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-xs font-bold">
+                      No saved locations found.
+                    </div>
+                  ) : (
+                    <div className="py-2 space-y-1">
+                      {savedAddresses.map((addr) => {
+                        const label = addr.addressType === 'office' ? 'Work' : addr.addressType === 'other' ? (addr.otherAddress || 'Other') : addr.addressType || 'Home'
+                        return (
+                          <div
+                            key={addr.id}
+                            onClick={() => {
+                              if (addr.latitude && addr.longitude) {
+                                updateCoordinates(Number(addr.latitude), Number(addr.longitude))
+                              }
+                              const addressParts = (addr.address || '').split(',').map(p => p.trim()).filter(Boolean)
+                              let primary = addressParts[0] || 'Custom Location'
+                              if (addressParts.length > 1 && (
+                                /^\d+$/.test(primary) ||
+                                primary.length <= 4 ||
+                                primary.toLowerCase().startsWith('flat') ||
+                                primary.toLowerCase().startsWith('house') ||
+                                primary.toLowerCase().startsWith('shop') ||
+                                primary.toLowerCase().startsWith('plot') ||
+                                primary.toLowerCase().startsWith('ward') ||
+                                primary.toLowerCase().startsWith('no') ||
+                                primary.toLowerCase().startsWith('#')
+                              )) {
+                                primary = addressParts[1]
+                              }
+                              const secondary = `${addr.address}, ${addr.city}`
+                              updateLocation(primary, secondary)
+                              localStorage.setItem('selectedAddressId', String(addr.id))
+                              
+                              setLocationModalOpen(false)
+                              setShowSavedLocationsList(false)
+                              toast.success(`Location set to ${primary}!`)
+                            }}
+                            className="flex items-start gap-3.5 p-3 hover:bg-purple-50/10 dark:hover:bg-purple-950/20 cursor-pointer rounded-2xl transition-colors text-left border border-transparent hover:border-purple-250 dark:hover:border-purple-900/30"
+                          >
+                            <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <p className="text-xs font-black text-gray-950 dark:text-white capitalize truncate leading-none">
+                                  {label}
+                                </p>
+                                {addr.isDefault && (
+                                  <span className="px-1.5 py-0.2 rounded bg-purple-600/10 text-purple-600 text-[8px] font-extrabold uppercase tracking-wider">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-semibold truncate leading-tight">
+                                {addr.address}, {addr.city}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-black text-gray-950 dark:text-white truncate leading-tight">
-                              {title}
-                            </p>
-                            <p className="text-[10.5px] text-gray-500 dark:text-gray-400 font-semibold truncate mt-1">
-                              {subtitle}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Map Search and Detect Controls */
+                <>
+                  <div className="flex items-center gap-3">
+                    {/* Detect Location Button */}
+                    <button
+                      onClick={fetchLocation}
+                      disabled={detecting}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-3 rounded-2xl font-bold text-xs shrink-0 flex items-center gap-1.5 transition-all disabled:opacity-70 active:scale-[0.97] border-none cursor-pointer shadow-sm"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      {detecting ? 'Detecting...' : 'Detect my location'}
+                    </button>
 
-                {applying && (
-                  <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
-                    <div className="w-4 h-4 border-2 border-purple-650 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-xs font-semibold">Applying location...</span>
+                    {/* OR Divider Badge */}
+                    <div className="w-8 h-8 rounded-full border border-gray-200 dark:border-white/5 flex items-center justify-center shrink-0 bg-gray-50/50 dark:bg-white/5">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">OR</span>
+                    </div>
+
+                    {/* Manual Search Form */}
+                    <form onSubmit={handleManualLocationSubmit} className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        placeholder="Search for area, street..."
+                        value={manualLocation}
+                        onChange={(e) => setManualLocation(e.target.value)}
+                        className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-2xl px-4 py-3 outline-none focus:border-purple-500 dark:text-white text-xs transition-all focus:ring-2 focus:ring-purple-500/10"
+                        required
+                      />
+                    </form>
                   </div>
-                )}
-              </div>
+
+                  {/* Suggestions / Results */}
+                  <div className="mt-4 max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-white/5">
+                    {searchingLocation && (
+                      <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
+                        <div className="w-4 h-4 border-2 border-purple-655 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs font-semibold">Searching locations...</span>
+                      </div>
+                    )}
+                    
+                    {!searchingLocation && locationSuggestions.length > 0 && (
+                      <div className="py-2 space-y-1">
+                        {locationSuggestions.map((item, index) => {
+                          const parts = item.display_name.split(', ')
+                          const title = parts[0]
+                          const subtitle = parts.slice(1).join(', ')
+
+                          return (
+                            <div
+                              key={item.place_id || index}
+                              onClick={() => handleSuggestionSelect(item)}
+                              className="flex items-start gap-3.5 p-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer rounded-2xl transition-colors text-left"
+                            >
+                              <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center shrink-0 text-gray-450 dark:text-gray-400 mt-0.5">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-black text-gray-950 dark:text-white truncate leading-tight">
+                                  {title}
+                                </p>
+                                <p className="text-[10.5px] text-gray-500 dark:text-gray-400 font-semibold truncate mt-1">
+                                  {subtitle}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {applying && (
+                      <div className="flex items-center gap-2 py-6 text-gray-500 dark:text-gray-400 justify-center">
+                        <div className="w-4 h-4 border-2 border-purple-650 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs font-semibold">Applying location...</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </motion.div>
           </>
         )}
@@ -855,23 +974,25 @@ const Navbar = () => {
               )}
 
               {/* Cart (Desktop Only) */}
-              <motion.button
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsCartOpen(true)}
-                className="hidden md:flex relative p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-primary-10 hover:border-primary transition-all duration-300"
-              >
-                <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                {cartCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-lg shadow-red-500/40"
-                  >
-                    {cartCount}
-                  </motion.span>
-                )}
-              </motion.button>
+              {!isVendor && (
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setIsCartOpen(true)}
+                  className="hidden md:flex relative p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-primary-10 hover:border-primary transition-all duration-300"
+                >
+                  <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  {cartCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-lg shadow-red-500/40"
+                    >
+                      {cartCount}
+                    </motion.span>
+                  )}
+                </motion.button>
+              )}
 
               {/* Auth / Profile Dropdown */}
               <div className="relative hidden md:block">

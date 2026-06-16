@@ -68,10 +68,30 @@ export const AppProvider = ({ children }) => {
         const backendCart = data.items || data.cart || data.cartItems || data.results || data.data || []
         const baseUrlForImage = import.meta.env.VITE_API_BASE_URL_FOR_IMAGE || 'https://nearzo-backend-bhk9.onrender.com'
 
+        // 1. Fetch latest product details for all unique vendorProductIds
+        const uniqueProductIds = [...new Set(backendCart.map(item => item.vendorProductId).filter(Boolean))]
+        const productDetailsMap = {}
+
+        await Promise.all(
+          uniqueProductIds.map(async (prodId) => {
+            try {
+              const { vendorService } = await import('../services/vendorService')
+              const res = await vendorService.getProductDetails(prodId)
+              if (res && res.success && res.product) {
+                productDetailsMap[prodId] = res.product
+              }
+            } catch (err) {
+              console.error(`Failed to fetch latest price for product ${prodId}:`, err)
+            }
+          })
+        )
+
+        // 2. Map backend cart items using the fetched latest prices
         const formatted = backendCart.map(item => {
           const productInfo = item.Product || {}
-          let imgUrl = dummyProduct
+          const latestProduct = productDetailsMap[item.vendorProductId]
 
+          let imgUrl = dummyProduct
           if (item.productImage) {
             imgUrl = item.productImage.startsWith('http') ? item.productImage : `${baseUrlForImage}${item.productImage}`
           } else if (item.image) {
@@ -80,16 +100,29 @@ export const AppProvider = ({ children }) => {
             imgUrl = productInfo.primaryImage.startsWith('http') ? productInfo.primaryImage : `${baseUrlForImage}${productInfo.primaryImage}`
           }
 
+          // Resolve latest price dynamically from the fetched product details
+          let resolvedPrice = Number(item.unitPrice || item.price || 0)
+          if (latestProduct) {
+            const variants = latestProduct.variants || []
+            const matchedVariant = variants.find(v => String(v.variantId) === String(item.variantId) || String(v.id) === String(item.variantId))
+            if (matchedVariant) {
+              resolvedPrice = Number(matchedVariant.discountPrice || matchedVariant.price || latestProduct.price || 0)
+            } else {
+              resolvedPrice = Number(latestProduct.discountPrice || latestProduct.price || 0)
+            }
+          }
+
           return {
             id: item.id, // Cart entry primary key (e.g. 17)
             vendorProductId: item.vendorProductId || productInfo.id || item.id,
             variantId: item.variantId || 'base',
-            name: item.productName || item.name || productInfo.name || 'Product',
-            price: Number(item.unitPrice || item.price || productInfo.price || 0),
+            name: item.productName || item.name || latestProduct?.name || productInfo.name || 'Product',
+            price: resolvedPrice,
             quantity: item.quantity || 1,
             image: imgUrl,
-            unit: item.variantName || item.unit || productInfo.unit || 'piece',
-            shopName: item.shopName || item.Vendor?.shopName || productInfo.Vendor?.shopName || item.Product?.Vendor?.shopName || ''
+            unit: item.variantName || item.unit || latestProduct?.unit || productInfo.unit || 'piece',
+            shopName: item.shopName || latestProduct?.shopName || item.Vendor?.shopName || productInfo.Vendor?.shopName || item.Product?.Vendor?.shopName || '',
+            vendor: item.Vendor || productInfo.Vendor || item.Product?.Vendor || latestProduct?.Vendor || latestProduct?.vendor || null
           }
         })
         setCart(formatted)
@@ -151,10 +184,81 @@ export const AppProvider = ({ children }) => {
     try {
       localStorage.setItem('cart', JSON.stringify(cart))
     } catch { }
-  }, [cart])
+  }, [cart])  // Sync Guest Cart Prices from API
+  const syncGuestCartPrices = useCallback(async () => {
+    const isLoggedIn = !!localStorage.getItem('user')
+    if (isLoggedIn) return
+    try {
+      const localCartStr = localStorage.getItem('cart')
+      if (!localCartStr) return
+      const localCart = JSON.parse(localCartStr)
+      if (!Array.isArray(localCart) || localCart.length === 0) return
 
+      const uniqueProductIds = [...new Set(localCart.map(item => item.vendorProductId || item.id).filter(Boolean))]
+      const productDetailsMap = {}
 
+      const { vendorService } = await import('../services/vendorService')
+      await Promise.all(
+        uniqueProductIds.map(async (prodId) => {
+          try {
+            const res = await vendorService.getProductDetails(prodId)
+            if (res && res.success && res.product) {
+              productDetailsMap[prodId] = res.product
+            }
+          } catch (err) {
+            console.error(`Failed to fetch latest price for guest product ${prodId}:`, err)
+          }
+        })
+      )
 
+      let updated = false
+      const newCart = localCart.map(item => {
+        const prodId = item.vendorProductId || item.id
+        const latestProduct = productDetailsMap[prodId]
+        if (!latestProduct) return item
+
+        // Resolve latest price dynamically
+        let resolvedPrice = item.price
+        const variants = latestProduct.variants || []
+        const matchedVariant = variants.find(v => String(v.variantId) === String(item.variantId) || String(v.id) === String(item.variantId))
+        if (matchedVariant) {
+          resolvedPrice = Number(matchedVariant.discountPrice || matchedVariant.price || latestProduct.price || 0)
+        } else {
+          resolvedPrice = Number(latestProduct.discountPrice || latestProduct.price || 0)
+        }
+
+        if (Number(resolvedPrice) !== Number(item.price)) {
+          updated = true
+          return {
+            ...item,
+            price: resolvedPrice,
+            name: latestProduct.name || item.name,
+            unit: matchedVariant?.label || matchedVariant?.name || matchedVariant?.unit || latestProduct.unit || item.unit
+          }
+        }
+        return item
+      })
+
+      if (updated) {
+        setCart(newCart)
+        localStorage.setItem('cart', JSON.stringify(newCart))
+      }
+    } catch (e) {
+      console.error('Failed to sync guest cart prices:', e)
+    }
+  }, [])
+
+  // Sync guest cart prices on mount or when user logout / login state changes
+  useEffect(() => {
+    syncGuestCartPrices()
+  }, [user, syncGuestCartPrices])
+
+  // Sync guest cart prices when drawer is opened
+  useEffect(() => {
+    if (isCartOpen) {
+      syncGuestCartPrices()
+    }
+  }, [isCartOpen, syncGuestCartPrices])
   // Sync Local Cart to Backend once user logs in
   const syncCartWithBackend = useCallback(async (loggedInUser) => {
     if (!loggedInUser) return

@@ -13,9 +13,11 @@ const ProductCard = ({ product, index, showAddToCart = true, isShopClosed = fals
   const reviewCount = product.reviews || 0
   const originalPrice = product.price / (1 - (product.discount || 0) / 100)
 
+  const isVendor = localStorage.getItem('role') === 'vendor'
+
   const handleNavigate = (e) => {
     if (e) e.stopPropagation()
-    if (isShopClosed) {
+    if (isShopClosed && !isVendor) {
       toast.error('This shop is currently Closed. You cannot place orders right now.', { id: 'shop-closed' })
       return
     }
@@ -106,7 +108,7 @@ const ProductCard = ({ product, index, showAddToCart = true, isShopClosed = fals
           </div>
 
           {/* Actions - Only shown if explicitly asked */}
-          {showAddToCart && (
+          {showAddToCart && !isVendor && (
             <div className="flex items-center justify-center border-t border-gray-100 dark:border-gray-800 pt-3">
               <button
                 onClick={handleNavigate}

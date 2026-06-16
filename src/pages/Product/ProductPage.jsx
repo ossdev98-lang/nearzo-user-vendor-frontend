@@ -14,6 +14,7 @@ const ProductPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToCart, cart } = useApp()
+  const isVendor = localStorage.getItem('role') === 'vendor'
   const [product, setProduct] = useState(null)
   const [shop, setShop] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -451,128 +452,129 @@ const ProductPage = () => {
               )}
 
               {/* The Buy Box */}
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl sm:rounded-[24px] p-5 sm:p-6 border border-gray-100 dark:border-gray-800 mb-6">
-                <div className="flex items-center mb-5">
-                  <span className="text-sm font-bold text-gray-900 dark:text-white mr-4 uppercase tracking-wide">Quantity</span>
-                  <div className="flex items-center w-[110px] h-10 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm p-1">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="flex-grow text-center font-bold text-sm text-gray-900 dark:text-white">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+              {!isVendor ? (
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl sm:rounded-[24px] p-5 sm:p-6 border border-gray-100 dark:border-gray-800 mb-6">
+                  <div className="flex items-center mb-5">
+                    <span className="text-sm font-bold text-gray-900 dark:text-white mr-4 uppercase tracking-wide">Quantity</span>
+                    <div className="flex items-center w-[110px] h-10 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm p-1">
+                      <button
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="flex-grow text-center font-bold text-sm text-gray-900 dark:text-white">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {isDifferentShop && (
-                  <div className="text-red-500 dark:text-red-400 font-semibold text-xs mt-2 bg-red-50/50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-3 flex items-start gap-2 mb-4">
-                    <span>⚠️</span>
-                    <span>Your cart already contains items from <strong>"{existingShopItem.shopName}"</strong>. Clear your cart to order from this shop.</span>
-                  </div>
-                )}
+                  {isDifferentShop && (
+                    <div className="text-red-500 dark:text-red-400 font-semibold text-xs mt-2 bg-red-50/50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-3 flex items-start gap-2 mb-4">
+                      <span>⚠️</span>
+                      <span>Your cart already contains items from <strong>"{existingShopItem.shopName}"</strong>. Clear your cart to order from this shop.</span>
+                    </div>
+                  )}
 
-                <div className="flex flex-row gap-2 sm:gap-3">
-                  <button
-                    onClick={async () => {
-                      if (hasAvailableVariants && selectedVariant === null) {
-                        setVariantError(true)
-                        toast.error('Please select an option first!')
-                        return
-                      }
-                      const option = activeOption || variants[0]
-                      setIsAdding(true)
-                      try {
-                        const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id })
-                        if (success) {
-                          toast.success('Added to Cart successfully!')
+                  <div className="flex flex-row gap-2 sm:gap-3">
+                    <button
+                      onClick={async () => {
+                        if (hasAvailableVariants && selectedVariant === null) {
+                          setVariantError(true)
+                          toast.error('Please select an option first!')
+                          return
                         }
-                      } catch (err) {
-                        // Toast error already handled gracefully by AppContext.jsx's addToCart
-                      } finally {
-                        setIsAdding(false)
-                      }
-                    }}
-                    disabled={isAdding || isDifferentShop}
-                    className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all shadow-md hover:shadow-lg ${isDifferentShop
-                      ? 'opacity-40 cursor-not-allowed bg-gray-300 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shadow-none hover:shadow-none hover:translate-y-0'
-                      : isAdding
-                        ? 'opacity-85 cursor-not-allowed bg-purple-500 text-white hover:-translate-y-0.5'
-                        : isInCart
-                          ? 'bg-green-600 hover:bg-green-700 text-white hover:-translate-y-0.5'
-                          : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white hover:-translate-y-0.5'
-                      }`}
-                  >
-                    {isAdding ? (
-                      <>
-                        <div className="w-5 h-5 rounded-full border-t-2 border-r-2 border-white animate-spin mr-1"></div>
-                        <span>Adding...</span>
-                      </>
-                    ) : isInCart ? (
-                      <>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                        <span>Added to Cart</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="w-5 h-5" />
-                        <span>Add to Cart</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (hasAvailableVariants && selectedVariant === null) {
-                        setVariantError(true)
-                        toast.error('Please select an option first!')
-                        return
-                      }
-                      const option = activeOption || variants[0]
-                      setIsBuyingNow(true)
-                      try {
-                        if (!isInCart) {
-                          const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id });
-                          if (!success) {
-                            setIsBuyingNow(false)
-                            return;
+                        const option = activeOption || variants[0]
+                        setIsAdding(true)
+                        try {
+                          const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id })
+                          if (success) {
+                            toast.success('Added to Cart successfully!')
                           }
+                        } catch (err) {
+                          // Toast error already handled gracefully by AppContext.jsx's addToCart
+                        } finally {
+                          setIsAdding(false)
                         }
-                        await new Promise((resolve) => setTimeout(resolve, 500))
-                        navigate('/checkout');
-                      } catch (err) {
-                        // Toast error already handled gracefully by AppContext.jsx's addToCart
-                      } finally {
-                        setIsBuyingNow(false)
-                      }
-                    }}
-                    disabled={isBuyingNow || isDifferentShop}
-                    className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all border-2 ${isDifferentShop
-                      ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-transparent'
-                      : isBuyingNow
-                        ? 'opacity-85 cursor-not-allowed border-[#6C4CF1] bg-[#6C4CF1]/10 text-[#6C4CF1] hover:-translate-y-0.5'
-                        : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
+                      }}
+                      disabled={isAdding || isDifferentShop}
+                      className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all shadow-md hover:shadow-lg ${isDifferentShop
+                        ? 'opacity-40 cursor-not-allowed bg-gray-300 dark:bg-gray-800 text-gray-500 dark:text-gray-400 shadow-none hover:shadow-none hover:translate-y-0'
+                        : isAdding
+                          ? 'opacity-85 cursor-not-allowed bg-purple-500 text-white hover:-translate-y-0.5'
+                          : isInCart
+                            ? 'bg-green-600 hover:bg-green-700 text-white hover:-translate-y-0.5'
+                            : 'bg-[#6C4CF1] hover:bg-[#5B3BE8] text-white hover:-translate-y-0.5'
+                        }`}
+                    >
+                      {isAdding ? (
+                        <>
+                          <div className="w-5 h-5 rounded-full border-t-2 border-r-2 border-white animate-spin mr-1"></div>
+                          <span>Adding...</span>
+                        </>
+                      ) : isInCart ? (
+                        <>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                          <span>Added to Cart</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="w-5 h-5" />
+                          <span>Add to Cart</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (hasAvailableVariants && selectedVariant === null) {
+                          setVariantError(true)
+                          toast.error('Please select an option first!')
+                          return
+                        }
+                        const option = activeOption || variants[0]
+                        setIsBuyingNow(true)
+                        try {
+                          if (!isInCart) {
+                            const success = await addToCart({ ...product, price: currentPrice / quantity, unit: option.label || product.unit, quantity, variantId: option.id });
+                            if (!success) {
+                              setIsBuyingNow(false)
+                              return;
+                            }
+                          }
+                          await new Promise((resolve) => setTimeout(resolve, 500))
+                          navigate('/checkout');
+                        } catch (err) {
+                          // Toast error already handled gracefully by AppContext.jsx's addToCart
+                        } finally {
+                          setIsBuyingNow(false)
+                        }
+                      }}
+                      disabled={isBuyingNow || isDifferentShop}
+                      className={`flex-grow h-12 flex items-center justify-center gap-2 rounded-xl font-bold text-base transition-all border-2 ${isDifferentShop
+                        ? 'opacity-40 cursor-not-allowed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500 bg-transparent'
+                        : isBuyingNow
+                          ? 'opacity-85 cursor-not-allowed border-[#6C4CF1] bg-[#6C4CF1]/10 text-[#6C4CF1] hover:-translate-y-0.5'
+                          : 'border-[#6C4CF1] text-[#6C4CF1] hover:bg-[#6C4CF1]/5 dark:hover:bg-[#6C4CF1]/10 hover:-translate-y-0.5'
                       }`}
-                  >
-                    {isBuyingNow ? (
-                      <>
-                        <div className="w-5 h-5 rounded-full border-t-2 border-r-2 border-[#6C4CF1] animate-spin mr-1"></div>
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      'Buy Now'
-                    )}
-                  </button>
+                    >
+                      {isBuyingNow ? (
+                        <>
+                          <div className="w-5 h-5 rounded-full border-t-2 border-r-2 border-[#6C4CF1] animate-spin mr-1"></div>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        'Buy Now'
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
-
+              ) : null}
             </div>
           </div>
 
