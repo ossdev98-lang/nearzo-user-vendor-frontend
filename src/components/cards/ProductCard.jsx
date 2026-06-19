@@ -71,23 +71,7 @@ const ProductCard = ({ product, index, showAddToCart = true, isShopClosed = fals
           {product.name}
         </h3>
 
-        {/* Rating */}
-        <div className="flex items-center gap-1 mb-3">
-          <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star
-                key={star}
-                className={`w-3.5 h-3.5 ${star <= Math.floor(avgRating)
-                  ? 'text-[#FFB800] fill-[#FFB800]'
-                  : 'text-gray-200 fill-gray-200'
-                  }`}
-              />
-            ))}
-          </div>
-          <span className="text-[11px] text-gray-400 font-medium ml-1">
-            ({reviewCount})
-          </span>
-        </div>
+
 
         <div className="mt-auto">
           {/* Prices */}

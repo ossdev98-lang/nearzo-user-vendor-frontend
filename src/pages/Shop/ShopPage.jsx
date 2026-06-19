@@ -32,7 +32,9 @@ const ShopPage = () => {
   const { coordinates } = useApp()
   const [shopData, setShopData] = useState(null)
   const [categoriesList, setCategoriesList] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [navCategories, setNavCategories] = useState([])
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [productsLoading, setProductsLoading] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -70,7 +72,7 @@ const ShopPage = () => {
       clearTimeout(timer)
       window.removeEventListener('resize', checkScrollable)
     }
-  }, [categoriesList, loading])
+  }, [categoriesList, initialLoading])
 
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -84,13 +86,29 @@ const ShopPage = () => {
 
   useEffect(() => {
     const fetchShopDetails = async () => {
-      setLoading(true)
+      if (!shopData) {
+        setInitialLoading(true)
+      } else {
+        setProductsLoading(true)
+      }
       try {
         const data = await vendorService.getShopDetails(id, currentPage, itemsPerPage, selectedCategory || '', searchQuery || '')
         if (data && data.success) {
           console.log('--- SHOP DATA ---', data.shop)
           setShopData(data.shop)
-          setCategoriesList(data.categories || [])
+          const nestedCats = data.categories || []
+          setCategoriesList(nestedCats)
+
+          const navCatsSrc = data.productCategories || data.categories || []
+          if (navCatsSrc.length > 0) {
+            setNavCategories(prev => {
+              const existing = new Set(prev)
+              navCatsSrc.forEach(c => {
+                if (c && c.name) existing.add(c.name)
+              })
+              return Array.from(existing)
+            })
+          }
 
           // Set dynamic pagination from backend keys safely
           if (data.pages !== undefined) {
@@ -117,7 +135,8 @@ const ShopPage = () => {
       } catch (error) {
         console.error('Error fetching shop details:', error)
       } finally {
-        setLoading(false)
+        setInitialLoading(false)
+        setProductsLoading(false)
       }
     }
     if (id) {
@@ -125,7 +144,7 @@ const ShopPage = () => {
     }
   }, [id, currentPage, selectedCategory, searchQuery])
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="min-h-screen pt-24 pb-16 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="relative w-16 h-16">
@@ -193,7 +212,7 @@ const ShopPage = () => {
     timeString = formattedOpening || formattedClosing;
   }
 
-  const categories = ['Home', ...categoriesList.map(c => c.name)]
+  const categories = ['Home', ...navCategories]
 
   const getProducts = () => {
     let list = []
@@ -206,16 +225,23 @@ const ShopPage = () => {
         cat.subCategories.forEach(sub => {
           if (Array.isArray(sub.products)) {
             sub.products.forEach(prod => {
-              const discount = prod.discountPrice && prod.discountPrice < prod.price
-                ? Math.round(((prod.price - prod.discountPrice) / prod.price) * 100)
-                : 0
+              const variants = prod.variants || []
+              const firstVariant = variants.length > 0 ? variants[0] : null
+
+              const discount = firstVariant
+                ? (firstVariant.discountPrice && Number(firstVariant.discountPrice) < Number(firstVariant.price)
+                  ? Math.round(((Number(firstVariant.price) - Number(firstVariant.discountPrice)) / Number(firstVariant.price)) * 100)
+                  : 0)
+                : (prod.discountPrice && Number(prod.discountPrice) < Number(prod.price)
+                  ? Math.round(((Number(prod.price) - Number(prod.discountPrice)) / Number(prod.price)) * 100)
+                  : 0)
 
               const getProdImage = () => {
                 const inner = prod.Product || {}
                 const imgPath = prod.primaryImage || prod.productImage || prod.image || inner.primaryImage || inner.productImage || inner.image
                 if (imgPath) return formatImgUrl(imgPath)
-                if (prod.variants && prod.variants.length > 0 && prod.variants[0].image) {
-                  return formatImgUrl(prod.variants[0].image)
+                if (firstVariant && firstVariant.image) {
+                  return formatImgUrl(firstVariant.image)
                 }
                 return ''
               }
@@ -226,14 +252,18 @@ const ShopPage = () => {
                 name: prod.name,
                 storeName: shopData?.shopName || 'Nearzo Store',
                 category: cat.name,
-                price: prod.discountPrice || prod.price,
-                unit: prod.unit || 'piece',
+                price: firstVariant
+                  ? (Number(firstVariant.discountPrice || firstVariant.price || 0))
+                  : (Number(prod.discountPrice || prod.price || 0)),
+                unit: firstVariant
+                  ? (firstVariant.name || firstVariant.unit || prod.unit || 'piece')
+                  : (prod.unit || 'piece'),
                 discount: discount,
                 image: prodImage,
                 rating: 4.5,
                 reviews: 8,
                 isNew: false,
-                variants: prod.variants || []
+                variants: variants
               })
             })
           }
@@ -421,7 +451,21 @@ const ShopPage = () => {
 
       {/* Products Section */}
       <div className="pb-8">
-        <ShopProductsSection selectedCategory={selectedCategory} products={paginatedProducts} isShopClosed={shop.workMode === false} />
+        {productsLoading ? (
+          <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="bg-white rounded-[16px] sm:rounded-[24px] p-2 sm:p-3 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-800 h-[280px]">
+                  <div className="w-full h-[160px] bg-gray-200 dark:bg-gray-800 rounded-xl mb-3"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ShopProductsSection selectedCategory={selectedCategory} products={paginatedProducts} isShopClosed={shop.workMode === false} />
+        )}
       </div>
 
       {/* Pagination Controls */}

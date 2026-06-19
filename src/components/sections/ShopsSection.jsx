@@ -197,23 +197,7 @@ export default function ShopsSection({ selectedCategory }) {
                     {shop.name}
                   </h3>
 
-                  {/* Rating */}
-                  <div className="flex items-center gap-1 mb-4">
-                    <div className="flex items-center">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`w-3.5 h-3.5 ${star <= Math.floor(shop.rating || 5)
-                            ? 'text-[#FFB800] fill-[#FFB800]'
-                            : 'text-gray-200 fill-gray-200 dark:text-gray-700 dark:fill-gray-700'
-                            }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-[11px] text-gray-400 dark:text-gray-500 font-bold ml-1">
-                      ({shop.rating || '5.0'})
-                    </span>
-                  </div>
+
 
                   <div className="mt-auto">
                     {/* Time and Distance */}
@@ -250,7 +234,7 @@ export default function ShopsSection({ selectedCategory }) {
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No shops found</h3>
             <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto text-sm">
-              We couldn't find any shops in the "{selectedCategory}" category right now. Try selecting another category.
+              No shops are available in the {selectedCategory} category right now. Try selecting another category.
             </p>
             <button
               onClick={() => window.location.reload()}

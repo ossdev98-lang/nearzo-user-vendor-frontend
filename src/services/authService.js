@@ -41,7 +41,7 @@ export const authService = {
   register: async (userData) => {
     try {
       const fcmToken = await requestForToken()
-      
+
       let payload
       if (userData instanceof FormData) {
         payload = userData
@@ -51,7 +51,7 @@ export const authService = {
       } else {
         payload = { ...userData, fcmToken }
       }
-      
+
       const response = await API.post('/auth/register', payload)
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)

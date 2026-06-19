@@ -179,12 +179,7 @@ export default function AllShopsPage() {
                     {shop.name}
                   </h3>
 
-                  <div className="flex items-center gap-1 mb-3">
-                    <Star className="w-3.5 h-3.5 text-[#FFB800] fill-[#FFB800]" />
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 font-bold">
-                      {shop.rating || '5.0'}
-                    </span>
-                  </div>
+
 
                   <div className="mt-auto border-t border-gray-50 dark:border-white/5 pt-2.5 flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 font-bold">
                     <div className="flex items-center gap-1">

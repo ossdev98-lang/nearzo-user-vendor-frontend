@@ -67,7 +67,7 @@ const Navbar = () => {
     }
   }
 
-  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation } = useApp()
+  const { cartCount, searchQuery, setSearchQuery, setIsCartOpen, user, setUser, updateCoordinates, isMobileSearchOpen, setIsMobileSearchOpen, primaryLocation, secondaryLocation, updateLocation, coordinates } = useApp()
   const navigate = useNavigate()
   const isVendor = localStorage.getItem('role') === 'vendor' || user?.role === 'vendor'
 
@@ -163,7 +163,7 @@ const Navbar = () => {
         setSearchLoading(true)
         setShowSuggestions(true)
         try {
-          const data = await searchService.search(searchQuery, searchType)
+          const data = await searchService.search(searchQuery, searchType, coordinates?.latitude, coordinates?.longitude)
           if (data && Array.isArray(data.results)) {
             setSuggestions(data.results)
           } else {
@@ -489,11 +489,17 @@ const Navbar = () => {
                       ? (item.discountPrice || item.price || item.Product?.price)
                       : null
 
+                    const isOutOfRange = item.isWithinOrderRange === false
+                    
                     return (
                       <div
                         key={item.id}
-                        onClick={() => handleSuggestionClick(item)}
-                        className="flex items-center gap-4 p-3 hover:bg-purple-50/50 dark:hover:bg-purple-500/10 cursor-pointer transition-colors rounded-xl"
+                        onClick={() => !isOutOfRange && handleSuggestionClick(item)}
+                        className={`flex items-center gap-4 p-3 rounded-xl transition-colors ${
+                          isOutOfRange 
+                            ? 'opacity-70 cursor-not-allowed bg-gray-50/50 dark:bg-white/5' 
+                            : 'hover:bg-purple-50/50 dark:hover:bg-purple-500/10 cursor-pointer'
+                        }`}
                       >
                         <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-gray-800">
                           <img
@@ -513,6 +519,11 @@ const Navbar = () => {
                           <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold truncate mt-0.5">
                             {categoryName} {shopName && `• ${shopName}`} {price !== null && `• ₹${price}`}
                           </p>
+                          {item.isWithinOrderRange === false && item.orderRangeMessage && (
+                            <p className="text-[10px] text-red-500 font-bold mt-0.5 truncate">
+                              {item.orderRangeMessage}
+                            </p>
+                          )}
                         </div>
                       </div>
                     )
