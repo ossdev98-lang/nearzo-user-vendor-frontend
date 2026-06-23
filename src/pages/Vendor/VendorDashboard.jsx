@@ -77,6 +77,7 @@ const VendorDashboard = () => {
     itemsChange: '+0%',
     viewsChange: '+0%'
   })
+  const [reKyc, setReKyc] = useState(false)
   const [recentOrders, setRecentOrders] = useState([])
   const [orderCounters, setOrderCounters] = useState({
     completed: 0,
@@ -88,7 +89,7 @@ const VendorDashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [statsData, ordersList] = await Promise.all([
+        const [statsData, ordersList, profileRes] = await Promise.all([
           vendorService.getOrderStats().catch(err => {
             console.error('Error fetching order stats:', err)
             return null
@@ -96,8 +97,17 @@ const VendorDashboard = () => {
           vendorService.getDashboardOrders().catch(err => {
             console.error('Error fetching dashboard orders list:', err)
             return []
+          }),
+          vendorService.getProfile().catch(err => {
+            console.error('Error fetching profile:', err)
+            return null
           })
         ])
+
+        if (profileRes) {
+          const profile = profileRes.vendor || profileRes.profile || profileRes.data || profileRes
+          setReKyc(profile.reKyc === true || profile.reKyc === 'true')
+        }
 
         // Parse orders list
         let rawOrdersArray = []
@@ -397,6 +407,32 @@ const VendorDashboard = () => {
 
       {/* 3. Main Content Container */}
       <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 space-y-6 md:space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+
+        {reKyc && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-gray-900 dark:text-white uppercase tracking-wider">Re-KYC Verification Required</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-semibold">
+                  Your store needs Aadhar Card re-verification. Please upload the documents in your settings page.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/vendor/settings"
+              className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-amber-600/10 text-center shrink-0 decoration-none"
+            >
+              Verify Now
+            </Link>
+          </motion.div>
+        )}
 
         {/* Top greeting bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-100/10 dark:border-gray-800 pb-6">

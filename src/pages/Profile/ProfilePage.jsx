@@ -9,7 +9,7 @@ import {
   User, Mail, Phone, MapPin, Edit3, Camera,
   ShoppingBag, Heart, CreditCard, Settings, LogOut, ChevronRight,
   Package, CheckCircle, Bell, Shield, X, Navigation, Lock, Trash2, Moon,
-  Play, Pause, Eye, EyeOff
+  Play, Pause, Eye, EyeOff, LifeBuoy, Mic, Square, Volume2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import dummyUserImage from '../../assets/images/dummyUserImage.jpg'
@@ -318,6 +318,23 @@ const ProfilePage = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  // Support Ticket States
+  const [ticketText, setTicketText] = useState('')
+  const [ticketImageFile, setTicketImageFile] = useState(null)
+  const [ticketImagePreview, setTicketImagePreview] = useState(null)
+  const [ticketAudioFile, setTicketAudioFile] = useState(null)
+  const [ticketAudioUrl, setTicketAudioUrl] = useState(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const recordingTimerRef = useRef(null)
+
+  // Voice playback inside the ticket form
+  const [playingTicketAudio, setPlayingTicketAudio] = useState(false)
+  const [ticketAudioInstance, setTicketAudioInstance] = useState(null)
 
   useEffect(() => {
     if (!showPasswordModal) {
@@ -632,6 +649,161 @@ const ProfilePage = () => {
     }
   }
 
+  // Support ticket handlers
+  const startRecording = async () => {
+    try {
+      if (playingTicketAudio && ticketAudioInstance) {
+        ticketAudioInstance.pause()
+        setPlayingTicketAudio(false)
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRecorderRef.current = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorderRef.current.onstop = () => {
+        // Stop stream tracks only after MediaRecorder has completely finished recording
+        stream.getTracks().forEach((track) => track.stop())
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+        const audioFile = new File([audioBlob], 'ticket_audio.wav', { type: 'audio/wav' })
+        setTicketAudioFile(audioFile)
+        setTicketAudioUrl(URL.createObjectURL(audioBlob))
+      }
+
+      mediaRecorderRef.current.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1)
+      }, 1000)
+
+      toast.success('Voice recording started...')
+    } catch (err) {
+      console.error('Microphone access denied or error:', err)
+      toast.error('Microphone access is required to record audio notes.')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+    }
+  }
+
+  const deleteRecording = () => {
+    if (ticketAudioInstance) {
+      ticketAudioInstance.pause()
+      setPlayingTicketAudio(false)
+      setTicketAudioInstance(null)
+    }
+    setTicketAudioFile(null)
+    setTicketAudioUrl(null)
+    setRecordingTime(0)
+  }
+
+  const togglePlaybackTicketAudio = () => {
+    if (!ticketAudioUrl) return
+
+    if (playingTicketAudio && ticketAudioInstance) {
+      ticketAudioInstance.pause()
+      setPlayingTicketAudio(false)
+    } else {
+      if (ticketAudioInstance) {
+        ticketAudioInstance.play()
+        setPlayingTicketAudio(true)
+      } else {
+        const audio = new Audio(ticketAudioUrl)
+        audio.play()
+        setPlayingTicketAudio(true)
+        setTicketAudioInstance(audio)
+        audio.onended = () => {
+          setPlayingTicketAudio(false)
+        }
+      }
+    }
+  }
+
+  // Clean up audio references on unmount or ticket change
+  useEffect(() => {
+    return () => {
+      if (ticketAudioInstance) {
+        ticketAudioInstance.pause()
+      }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+    }
+  }, [ticketAudioInstance])
+
+  const handleTicketImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setTicketImageFile(file)
+      setTicketImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const removeTicketImage = () => {
+    setTicketImageFile(null)
+    setTicketImagePreview(null)
+  }
+
+  const handleSubmitSupportTicket = async (e) => {
+    if (e) e.preventDefault()
+    if (!ticketText.trim() && !ticketImageFile && !ticketAudioFile) {
+      toast.error('Please enter a description, upload an image, or record a voice note.')
+      return
+    }
+
+    setIsSubmittingTicket(true)
+    const toastId = toast.loading('Submitting your support ticket...')
+
+    try {
+      const formData = new FormData()
+      if (ticketText.trim()) {
+        formData.append('text', ticketText)
+      }
+      if (ticketImageFile) {
+        formData.append('image', ticketImageFile)
+      }
+      if (ticketAudioFile) {
+        formData.append('audio', ticketAudioFile)
+      }
+
+      console.log('--- Raising Support Ticket ---')
+      console.log('Text description:', ticketText)
+      console.log('Image attachment file:', ticketImageFile)
+      console.log('Audio voice note file:', ticketAudioFile)
+
+      await userService.raiseSupportTicket(formData)
+      
+      toast.success('Support ticket submitted successfully!', { id: toastId })
+      
+      setTicketText('')
+      setTicketImageFile(null)
+      setTicketImagePreview(null)
+      setTicketAudioFile(null)
+      setTicketAudioUrl(null)
+      setRecordingTime(0)
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Failed to submit ticket. Please try again.', { id: toastId })
+    } finally {
+      setIsSubmittingTicket(false)
+    }
+  }
+
   const startEditingProfile = () => {
     setEditProfileForm({
       name: profileData?.name || '',
@@ -673,6 +845,7 @@ const ProfilePage = () => {
     { id: 'personal', label: 'Personal Info', icon: User },
     { id: 'orders', label: 'My Orders', icon: ShoppingBag },
     { id: 'addresses', label: 'Addresses', icon: MapPin },
+    { id: 'support', label: 'Support & Tickets', icon: LifeBuoy },
     { id: 'settings', label: 'Settings', icon: Settings },
   ]
 
@@ -1221,6 +1394,202 @@ const ProfilePage = () => {
                       </div>
 
                     </div>
+                  </div>
+                </motion.div>
+              )}
+              {activeTab === 'support' && (
+                <motion.div
+                  key="support"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-black/20 border border-gray-100 dark:border-white/5 overflow-hidden">
+                    <div className="px-6 sm:px-8 py-6 border-b border-gray-100 dark:border-white/5">
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <LifeBuoy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        Raise a Support Ticket
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">Submit your issue description along with optional image and voice notes.</p>
+                    </div>
+
+                    <form onSubmit={handleSubmitSupportTicket} className="p-6 sm:p-8 space-y-6">
+                      {/* Text Description */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest block">Issue Description *</label>
+                        <textarea
+                          value={ticketText}
+                          onChange={(e) => setTicketText(e.target.value)}
+                          placeholder="Please describe your issue in detail..."
+                          className="w-full p-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl focus:ring-2 focus:ring-purple-600 outline-none text-sm text-gray-900 dark:text-white min-h-[140px] resize-none transition-all"
+                        />
+                      </div>
+
+                      {/* Image Upload & Voice Note Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Image Attachment Card */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest block">Attach Image</label>
+                          <div className="relative border-2 border-dashed border-gray-200 dark:border-white/10 hover:border-purple-600 dark:hover:border-purple-500 rounded-2xl p-5 flex flex-col items-center justify-center transition-all bg-gray-50 dark:bg-white/5 min-h-[160px]">
+                            {ticketImagePreview ? (
+                              <div className="relative w-full h-28 rounded-xl overflow-hidden flex items-center justify-center">
+                                <img src={ticketImagePreview} alt="Ticket Attachment" className="w-full h-full object-contain" />
+                                <button
+                                  type="button"
+                                  onClick={removeTicketImage}
+                                  className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors border-none cursor-pointer"
+                                  title="Remove image"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-center space-y-2 text-gray-400">
+                                <Camera className="w-8 h-8 mx-auto text-purple-600/60 dark:text-purple-400/60" />
+                                <div className="space-y-1">
+                                  <span className="text-xs font-extrabold block text-gray-700 dark:text-gray-300">Drag or upload screenshot</span>
+                                  <span className="text-[10px] block text-gray-400">Supports JPG, PNG, WEBP</span>
+                                </div>
+                                <label className="mt-3 inline-block px-4 py-1.5 bg-purple-600/10 text-purple-600 dark:text-purple-400 rounded-xl text-[11px] font-black uppercase cursor-pointer hover:bg-purple-600/20 transition-all">
+                                  Select File
+                                  <input type="file" accept="image/*" className="hidden" onChange={handleTicketImageChange} />
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Audio Voice Recording Card */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-black text-gray-400 uppercase tracking-widest block">Voice Note</label>
+                          <div className="relative border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-5 flex flex-col items-center justify-center bg-gray-50 dark:bg-white/5 min-h-[160px]">
+                            {isRecording ? (
+                              <div className="text-center space-y-4 w-full">
+                                <div className="flex items-center justify-center gap-1.5 h-6">
+                                  {[12, 24, 16, 20, 8].map((h, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="w-1 bg-red-500 rounded-full animate-bounce"
+                                      style={{
+                                        height: `${h}px`,
+                                        animationDelay: `${idx * 0.15}s`,
+                                        animationDuration: '0.6s'
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="text-xs font-extrabold text-red-500 animate-pulse tracking-wider">
+                                  RECORDING: {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={stopRecording}
+                                  className="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 transition-all cursor-pointer border-none"
+                                >
+                                  <Square className="w-5 h-5 fill-white" />
+                                </button>
+                              </div>
+                            ) : ticketAudioUrl ? (
+                              <div className="text-center space-y-4 w-full px-4">
+                                <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-3.5 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={togglePlaybackTicketAudio}
+                                      className="w-10 h-10 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 flex items-center justify-center hover:bg-purple-600/20 transition-colors border-none cursor-pointer"
+                                      title={playingTicketAudio ? 'Pause' : 'Play voice note'}
+                                    >
+                                      {playingTicketAudio ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                                    </button>
+                                    <div className="text-left">
+                                      <p className="text-xs font-black text-gray-900 dark:text-white">Voice Instruction</p>
+                                      <p className="text-[10px] text-gray-400">Audio ready to submit</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={deleteRecording}
+                                    className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl transition-colors border-none bg-transparent cursor-pointer"
+                                    title="Delete voice note"
+                                  >
+                                    <Trash2 className="w-4.5 h-4.5" />
+                                  </button>
+                                </div>
+
+                                <div className="flex gap-2">
+                                  <label className="flex-1 py-2 px-3 border border-purple-200 dark:border-white/10 hover:border-purple-600 text-purple-600 dark:text-purple-400 rounded-xl text-[10px] font-black uppercase text-center cursor-pointer transition-all">
+                                    Replace File
+                                    <input
+                                      type="file"
+                                      accept="audio/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                          setTicketAudioFile(file)
+                                          setTicketAudioUrl(URL.createObjectURL(file))
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center space-y-2 text-gray-400">
+                                <Mic className="w-8 h-8 mx-auto text-purple-600/60 dark:text-purple-400/60" />
+                                <div className="space-y-1">
+                                  <span className="text-xs font-extrabold block text-gray-700 dark:text-gray-300">Add Voice Instruction</span>
+                                  <span className="text-[10px] block text-gray-400">Record directly or select an audio file</span>
+                                </div>
+                                <div className="flex gap-2 justify-center pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={startRecording}
+                                    className="px-4 py-1.5 bg-purple-600 text-white rounded-xl text-[11px] font-black uppercase cursor-pointer hover:bg-purple-750 transition-all border-none"
+                                  >
+                                    Record
+                                  </button>
+                                  <label className="px-4 py-1.5 bg-purple-600/10 text-purple-600 dark:text-purple-400 rounded-xl text-[11px] font-black uppercase cursor-pointer hover:bg-purple-600/20 transition-all">
+                                    Upload File
+                                    <input
+                                      type="file"
+                                      accept="audio/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                          setTicketAudioFile(file)
+                                          setTicketAudioUrl(URL.createObjectURL(file))
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Submit Button */}
+                      <div className="flex justify-end pt-2 border-t border-gray-50 dark:border-white/5">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingTicket}
+                          className="w-full sm:w-auto px-8 py-3.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border-none cursor-pointer shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2"
+                        >
+                          {isSubmittingTicket ? (
+                            <>
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            'Submit Support Ticket'
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </motion.div>
               )}

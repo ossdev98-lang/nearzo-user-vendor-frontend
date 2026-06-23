@@ -163,5 +163,13 @@ export const vendorService = {
       }
     })
     return response.data
+  },
+  raiseSupportTicket: async (formData) => {
+    const response = await API.post('/vendor/support', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
   }
 }

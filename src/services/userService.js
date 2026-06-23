@@ -16,6 +16,14 @@ export const userService = {
   deleteAddress: async (id) => {
     const response = await API.delete(`/user/addresses/${id}`)
     return response.data
+  },
+  raiseSupportTicket: async (formData) => {
+    const response = await API.post('/user/support', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
   }
 
 }
