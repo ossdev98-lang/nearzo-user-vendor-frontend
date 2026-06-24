@@ -5,12 +5,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-comp
 // Initialize the Firebase app in the service worker
 // Note: We use fallback/dummy credentials that get read at runtime, or fallback gracefully.
 const firebaseConfig = {
-  apiKey: "AIzaSyCkDEH_tZDO_uVTVG1SCxXW00ExJczW8cI",
-  authDomain: "nearzo-vendor.firebaseapp.com",
-  projectId: "nearzo-vendor",
-  storageBucket: "nearzo-vendor.firebasestorage.app",
-  messagingSenderId: "1051688301712",
-  appId: "1:1051688301712:web:80dfa6e2b98cbc8e221415",
+  apiKey: "AIzaSyCO1g3dVmUwqJCumVBSMBMJqhFtapH1Cto",
+  authDomain: "nearzo-47944.firebaseapp.com",
+  projectId: "nearzo-47944",
+  storageBucket: "nearzo-47944.firebasestorage.app",
+  messagingSenderId: "131416876589",
+  appId: "1:131416876589:web:8cb179b67accc695fb7aa4",
 };
 
 firebase.initializeApp(firebaseConfig);
